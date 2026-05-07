@@ -1,1 +1,11 @@
 .idea/
+data/
+models/
+venv/
+.venv/
+env/
+.env
+venv/
+.venv/
+env/
+.env
