@@ -23,7 +23,11 @@ def process_dataset(dataset:pathlib.Path,result_path:pathlib.Path,k:int):
     k_fold_sort_path.mkdir(exist_ok=True)
     split_dataset_k_fold(result_path,k_fold_sort_path,k)
 
+    for folder in k_fold_sort_path.rglob("*"):
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
+
 
 if __name__ == "__main__":
-    process_dataset(data_path/"raw"/"1"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default",10)
+    process_dataset(data_path/"raw"/"1"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default",5)
 
