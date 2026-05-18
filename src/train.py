@@ -20,13 +20,16 @@ from torch.utils.data import DataLoader
 class model_trainer:
     def __init__(self):
         self.loss_function = nn.CrossEntropyLoss()
-        self.num_epochs = 100
+        self.num_epochs = 5
         self.main_path = Path(__file__).parent.parent
         self.model_path = self.main_path / "models"
         self.dataset_path = None
         self.classes_count=99
+        self.batch_size = 256
+        self.current_dict_name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        self.learning_rate = 0.001
 
-    def train_default_yolo(self, split:split_type, epochs:int, imgsz:(200, 200), k_fold_value:int, ):
+    def train_default_yolo(self, split:split_type, epochs:int, k_fold_value:int, ):
         if split is split_type.split_type.KFOLD:
             self.dataset_path = self.main_path / "data" / "processed" / "k_fold"
         else:
@@ -45,22 +48,21 @@ class model_trainer:
 
             fold_train_path = self.dataset_path / f"fold_{i}" / "train"
             self.yolo_transforms = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                transforms.ToTensor()
             ])
             fold_dataset = datasets.ImageFolder(fold_train_path, transform=self.yolo_transforms)
-            loader = DataLoader(fold_dataset, batch_size=256, shuffle=True, num_workers=6)
+            loader = DataLoader(fold_dataset, batch_size=self.batch_size, shuffle=True, num_workers=6)
 
-           #in_features = self.yolo_model.model[-1].linear.in_features
-           #self.yolo_model.model[-1].linear = nn.Linear(in_features, self.classes_count)
+            # in_features = self.yolo_model.model[-1].linear.in_features
+            # self.yolo_model.model[-1].linear = nn.Linear(in_features, self.classes_count)
+
 
             self.yolo_model.to("cuda")
 
             for param in self.yolo_model.parameters():
                 param.requires_grad = True
 
-            optimizer = torch.optim.AdamW(self.yolo_model.parameters(), lr=0.001)
+            optimizer = torch.optim.AdamW(self.yolo_model.parameters(), lr=self.learning_rate)
 
             for epoch in range(0,epochs):
                 epoch_loss=0
@@ -91,7 +93,7 @@ class model_trainer:
 
             fold_eval_path = self.dataset_path / f"fold_{i}" / "val"
             eval_dataset = datasets.ImageFolder(fold_eval_path, transform=self.yolo_transforms)
-            loader=DataLoader(eval_dataset,batch_size=128,num_workers=6)
+            loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=6)
 
             self.default_yolo_model = YOLO(self.model_path / "yolo26n-cls.pt")
             self.yolo_model = self.default_yolo_model.model
@@ -120,7 +122,7 @@ class model_trainer:
                     predicted_classes.extend(torch.argmax(outputs, 1).cpu().numpy())
                     actual_classes.extend(labels.cpu().numpy())
 
-            print(f"{actual_classes}, || {predicted_classes}")
+            print(f"{actual_classes}, \n {predicted_classes}")
             fold_accuracy=accuracy_score(actual_classes,predicted_classes)
             print(f"Fold {i} : accuracy {fold_accuracy}")
             accuracy_scores.append(fold_accuracy)
