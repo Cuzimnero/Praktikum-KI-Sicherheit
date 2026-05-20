@@ -4,7 +4,8 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
-from src import split_type
+from src.split_type import split_type,class_type
+
 from sklearn.metrics import accuracy_score
 
 import torch.nn as nn
@@ -29,9 +30,12 @@ class model_trainer:
         self.current_dict_name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.learning_rate = 0.001
 
-    def train_default_yolo(self, split:split_type, epochs:int, k_fold_value:int, ):
-        if split is split_type.split_type.KFOLD:
-            self.dataset_path = self.main_path / "data" / "processed" / "k_fold"
+    def train_default_yolo(self, split:split_type,class_type:class_type, epochs:int, k_fold_value:int,group_count:int ):
+        if split is split_type.KFOLD:
+            if class_type is class_type.Group:
+                self.dataset_path = self.main_path / "data" / "processed" / "k_fold"/"groups"/f"group_size_{group_count}"
+            elif class_type is class_type.default:
+                self.dataset_path = self.main_path / "data" / "processed" /"k_fold"/ "default"
         else:
             raise TypeError("Invalid split type")
 
@@ -91,6 +95,9 @@ class model_trainer:
             predicted_classes = []
             actual_classes = []
 
+            if self.dataset_path is None:
+                raise ValueError("Dataset path not initialized")
+
             fold_eval_path = self.dataset_path / f"fold_{i}" / "val"
             eval_dataset = datasets.ImageFolder(fold_eval_path, transform=self.yolo_transforms)
             loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=6)
@@ -104,7 +111,7 @@ class model_trainer:
 
             try:
                 weights = torch.load(self.model_path / "runs" / self.current_dict_name / f"yolo26n-cls_fold{i}.pt")
-                self.yolo_model.load_state_dict(weights,strict=False)
+                self.yolo_model.load_state_dict(weights)
             except FileNotFoundError:
                 raise FileNotFoundError("Model not found")
 
@@ -122,7 +129,6 @@ class model_trainer:
                     predicted_classes.extend(torch.argmax(outputs, 1).cpu().numpy())
                     actual_classes.extend(labels.cpu().numpy())
 
-            print(f"{actual_classes}, \n {predicted_classes}")
             fold_accuracy=accuracy_score(actual_classes,predicted_classes)
             print(f"Fold {i} : accuracy {fold_accuracy}")
             accuracy_scores.append(fold_accuracy)
@@ -137,7 +143,11 @@ class model_trainer:
 
 if __name__ == "__main__":
     model = model_trainer()
-    model.train_default_yolo(split_type.split_type.KFOLD,epochs=model.num_epochs,imgsz=(200,200),k_fold_value=1)
+    model.train_default_yolo(split_type.KFOLD,class_type.Group,epochs=model.num_epochs,k_fold_value=1,group_count=4)
+    print(f"Average default training accuracy {model.val_default_yolo(1)}")
+    model.train_default_yolo(split_type.KFOLD, class_type.Group, epochs=model.num_epochs, k_fold_value=1, group_count=10)
+    print(f"Average default training accuracy {model.val_default_yolo(1)}")
+    model.train_default_yolo(split_type.KFOLD, class_type.Group, epochs=model.num_epochs, k_fold_value=1, group_count=12)
     print(f"Average default training accuracy {model.val_default_yolo(1)}")
 
 
