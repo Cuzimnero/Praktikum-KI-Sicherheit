@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 import os
 from pathlib import Path
@@ -6,9 +7,9 @@ from ultralytics import YOLO
 
 from src.split_type import split_type,class_type
 
-from sklearn.metrics import accuracy_score
 
 import torch.nn as nn
+from src.evaluation import evaluator
 
 import torch
 from torchvision import datasets, transforms
@@ -51,14 +52,11 @@ class model_trainer:
             self.yolo_model.train()
 
             fold_train_path = self.dataset_path / f"fold_{i}" / "train"
-            self.yolo_transforms = transforms.Compose([
-                transforms.ToTensor()
-            ])
-            fold_dataset = datasets.ImageFolder(fold_train_path, transform=self.yolo_transforms)
+            fold_dataset = datasets.ImageFolder(fold_train_path, transform= transforms.ToTensor())
             loader = DataLoader(fold_dataset, batch_size=self.batch_size, shuffle=True, num_workers=6)
 
-            # in_features = self.yolo_model.model[-1].linear.in_features
-            # self.yolo_model.model[-1].linear = nn.Linear(in_features, self.classes_count)
+            in_features = self.yolo_model.model[-1].linear.in_features
+            self.yolo_model.model[-1].linear = nn.Linear(in_features, self.classes_count)
 
 
             self.yolo_model.to("cuda")
@@ -86,69 +84,35 @@ class model_trainer:
 
             torch.save(self.yolo_model.state_dict(),run_dict_path/f"yolo26n-cls_fold{i}.pt")
 
-    def val_default_yolo(self,k_fold_value:int):
-        print("starting evaluation")
-        test_loss = 0
-        accuracy_scores=[]
-
-        for i in range(1, k_fold_value + 1):
-            predicted_classes = []
-            actual_classes = []
-
-            if self.dataset_path is None:
-                raise ValueError("Dataset path not initialized")
-
-            fold_eval_path = self.dataset_path / f"fold_{i}" / "val"
-            eval_dataset = datasets.ImageFolder(fold_eval_path, transform=self.yolo_transforms)
-            loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=6)
-
-            self.default_yolo_model = YOLO(self.model_path / "yolo26n-cls.pt")
-            self.yolo_model = self.default_yolo_model.model
-
-            #in_features = self.yolo_model.model[-1].linear.in_features
-            #self.yolo_model.model[-1].linear = nn.Linear(in_features, self.classes_count)
-            self.yolo_model.to("cuda")
-
-            try:
-                weights = torch.load(self.model_path / "runs" / self.current_dict_name / f"yolo26n-cls_fold{i}.pt")
-                self.yolo_model.load_state_dict(weights)
-            except FileNotFoundError:
-                raise FileNotFoundError("Model not found")
-
-            self.yolo_model.eval()
-
-            with torch.no_grad():
-                for inputs, labels in loader:
-                    inputs, labels = inputs.to("cuda"), labels.to("cuda")
-                    #outputs=self.yolo_model.forward(inputs)
-                    outputs = self.yolo_model(inputs)
-                    if isinstance(outputs, (list, tuple)):
-                        outputs = outputs[0]
-                    loss=self.loss_function(outputs, labels)
-                    test_loss+=loss.item()
-                    predicted_classes.extend(torch.argmax(outputs, 1).cpu().numpy())
-                    actual_classes.extend(labels.cpu().numpy())
-
-            fold_accuracy=accuracy_score(actual_classes,predicted_classes)
-            print(f"Fold {i} : accuracy {fold_accuracy}")
-            accuracy_scores.append(fold_accuracy)
-
-
-
-        return sum(accuracy_scores)/k_fold_value
-
-
 
 
 
 if __name__ == "__main__":
     model = model_trainer()
     model.train_default_yolo(split_type.KFOLD,class_type.Group,epochs=model.num_epochs,k_fold_value=1,group_count=4)
-    print(f"Average default training accuracy {model.val_default_yolo(1)}")
+    evaluator = evaluator(model.current_dict_name, model.model_path, model.batch_size, model.dataset_path,model.classes_count)
+    print(f"Average default training accuracy {evaluator.val_default_yolo(1)}")
+    with open(model.dataset_path/"group-list.json", "r", encoding="utf-8") as file:
+        groups = json.load(file)
+    group_list = [group["name"] for group in groups.values()]
+    evaluator.show_confusion_matrix(group_list)
+
     model.train_default_yolo(split_type.KFOLD, class_type.Group, epochs=model.num_epochs, k_fold_value=1, group_count=10)
-    print(f"Average default training accuracy {model.val_default_yolo(1)}")
+    evaluator.update_dataset_path(model.dataset_path)
+    print(f"Average default training accuracy {evaluator.val_default_yolo(1)}")
+    with open(model.dataset_path/"group-list.json", "r", encoding="utf-8") as file:
+        groups = json.load(file)
+    group_list = [group["name"] for group in groups.values()]
+    evaluator.show_confusion_matrix(group_list)
+
     model.train_default_yolo(split_type.KFOLD, class_type.Group, epochs=model.num_epochs, k_fold_value=1, group_count=12)
-    print(f"Average default training accuracy {model.val_default_yolo(1)}")
+    evaluator.update_dataset_path(model.dataset_path)
+    print(f"Average default training accuracy {evaluator.val_default_yolo(1)}")
+    with open(model.dataset_path/"group-list.json", "r", encoding="utf-8") as file:
+        groups = json.load(file)
+    group_list = [group["name"] for group in groups.values()]
+    evaluator.show_confusion_matrix(group_list)
+
 
 
 

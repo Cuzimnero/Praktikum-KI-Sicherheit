@@ -1,3 +1,4 @@
+import json
 import shutil as sh
 import pathlib
 import splitfolders as fs
@@ -35,7 +36,7 @@ def process_dataset_groups(dataset:pathlib.Path,result_path:pathlib.Path,k:int,g
     k_fold_sort_path = result_path/".."/".."/"k_fold"/"groups"/f"group_size_{group_count}"
     k_fold_sort_path.mkdir(exist_ok=True,parents=True)
     files = dataset.glob("*.jpg")
-    create_groups(group_count)
+    create_groups(group_count,k_fold_sort_path)
     for file in files:
         information=file.name.split("_")
         for group in group_map.values():
@@ -53,7 +54,7 @@ def process_dataset_groups(dataset:pathlib.Path,result_path:pathlib.Path,k:int,g
 
 
 
-def create_groups(group_count:int):
+def create_groups(group_count:int,dest_dir:pathlib.Path):
     if not buckets:
         raise RuntimeError("No buckets found")
 
@@ -65,6 +66,8 @@ def create_groups(group_count:int):
         group_map[i] = {
             "start": group_start, "end": group_end,"name":f"{group_start}-{group_end}"
         }
+    with open(dest_dir/"group-list.json", "w", encoding="utf-8") as file:
+        json.dump(group_map, file, ensure_ascii=False, indent=4)
 
 
 
