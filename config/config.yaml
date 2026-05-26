@@ -1,0 +1,15 @@
+dataset_processing:
+
+train:
+  num_epochs: 10
+  classes_count: 99
+  batch_size: 256
+  learning_rate: 0.001
+
+
+paths:
+  logging_path: "logs"
+  model_path: "model"
+  dataset_path: "data"
+
+
