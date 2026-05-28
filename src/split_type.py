@@ -6,3 +6,7 @@ class split_type(Enum):
 class class_type(Enum):
     Group=3
     default=4
+
+class dataset_type(Enum):
+    DEFAULT=1
+    SCALED=2

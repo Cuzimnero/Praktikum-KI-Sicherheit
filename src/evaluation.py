@@ -13,7 +13,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 class evaluator:
-    def __init__(self, current_dict_name:str, model_path:Path, batch_size:int, dataset_path:Path, classes_count:int, logger: logging,main_path:Path):
+    def __init__(self, current_dict_name:str, model_path:Path, batch_size:int, dataset_path:Path, classes_count:int, logger: logging,main_path:Path,num_data_loader_worker:int):
         self.cm = None
         self.current_dict_name = current_dict_name
         self.batch_size = batch_size
@@ -25,22 +25,24 @@ class evaluator:
         self.classes_count = classes_count
         self.logger = logger
         self.main_path = main_path
+        self.num_data_loader_worker = num_data_loader_worker
 
-    def val_default_yolo(self,k_fold_value:int,group_count:int):
+    def val_default_yolo(self,k_fold_value:int):
         print("starting evaluation")
-        test_loss = 0
         accuracy_scores=[]
+        self.cm=[]
 
         for i in range(1, k_fold_value + 1):
             predicted_classes = []
             actual_classes = []
+            test_loss=0
 
             if self.dataset_path is None:
                 raise ValueError("Dataset path not initialized")
 
             fold_eval_path = self.dataset_path / f"fold_{i}" / "val"
             eval_dataset = datasets.ImageFolder(fold_eval_path, transform= transforms.ToTensor())
-            loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=6)
+            loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=self.num_data_loader_worker)
 
             self.default_yolo_model = YOLO(self.model_path / "yolo26n-cls.pt")
             self.yolo_model = self.default_yolo_model.model
@@ -52,8 +54,8 @@ class evaluator:
             try:
                 weights = torch.load(self.model_path / "runs" / self.current_dict_name / f"yolo26n-cls_fold{i}.pt")
                 self.yolo_model.load_state_dict(weights)
-            except FileNotFoundError:
-                raise FileNotFoundError("Model not found")
+            except FileNotFoundError as e:
+                raise FileNotFoundError(f"Model not found: {e}")
 
             self.yolo_model.eval()
 
@@ -70,28 +72,34 @@ class evaluator:
                     actual_classes.extend(labels.cpu().numpy())
 
             fold_accuracy=accuracy_score(actual_classes,predicted_classes)
-            self.cm=confusion_matrix(actual_classes,predicted_classes)
+            self.cm.append(confusion_matrix(actual_classes,predicted_classes))
             print(f"Fold {i} : accuracy {fold_accuracy}")
             self.logger.info(f"Fold {i} : accuracy {fold_accuracy}")
             accuracy_scores.append(fold_accuracy)
 
         average=sum(accuracy_scores)/k_fold_value
-        self.logger.info(f"Average default training accuracy {average} Group count: {group_count}")
+        self.logger.info(f"Average default training accuracy {average} Group count: {self.classes_count}")
         return average
 
-    def update_dataset_path(self,dataset_path:Path):
-            self.dataset_path = dataset_path
 
-    def show_confusion_matrix(self,display_labels:list):
-        matrix=ConfusionMatrixDisplay(confusion_matrix=self.cm,display_labels=display_labels).plot()
-        self.figure=matrix.figure_
-        plt.xticks(rotation=45, ha='right')
-        plt.show()
+    def show_confusion_matrix(self,display_labels:list,name:str):
+        self.figure =[]
+        for confusion_matrix in self.cm:
+            matrix=ConfusionMatrixDisplay(confusion_matrix=confusion_matrix,display_labels=display_labels).plot()
+            fig=matrix.figure_
+            fig.tight_layout()
+            fig.subplots_adjust(bottom=0.2)
+            plt.xticks(rotation=45, ha='right')
+            fig.suptitle(name, y=0.05, fontsize=10, style="italic")
+
+            self.figure.append(fig)
+            plt.show()
 
     def safe_confusion_matrix(self):
-        file_name="confusion_matrix_"+datetime.now().strftime("%Y-%m-%d_%H-%M") + ".png"
         result_dir = self.main_path / "results"
         result_dir.mkdir(parents=True, exist_ok=True)
-        self.figure.savefig(self.main_path /"results"/file_name )
+        for index, fig in enumerate(self.figure):
+            file_name = f"confusion_matrix_fold_{index + 1}_" + datetime.now().strftime("%Y-%m-%d_%H-%M") + ".png"
+            fig.savefig(result_dir / file_name, bbox_inches='tight')
 
 

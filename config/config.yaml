@@ -1,10 +1,11 @@
 dataset_processing:
 
 train:
-  num_epochs: 10
+  num_epochs: 5
   classes_count: 99
   batch_size: 256
   learning_rate: 0.001
+  num_data_loader_worker: 2
 
 
 paths:
