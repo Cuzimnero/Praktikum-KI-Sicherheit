@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 
+from numpy.ma.extras import average
 from ultralytics import YOLO
 
 from src.split_type import split_type,class_type,dataset_type
@@ -19,7 +20,7 @@ from torchvision import datasets, transforms
 
 from torch.utils.data import DataLoader
 
-from src.metrics import mean_absolute_percentage_error, cumulative_score
+from src.metrics import mean_absolute_error, cumulative_score
 import numpy as np
 
 
@@ -130,65 +131,6 @@ class model_trainer:
 
         print(f"Average default training accuracy {eval.val_default_yolo(k_fold_value)}")
 
-
-        # MAE und CS Berechnen
-
-        # Vorhersagen werden konsistent (Evaluation-Modus)
-        self.yolo_model.eval()
-
-        # Pfad zu Validierungsordnern (Prüft ob KI overfitted oder gelernt hat)
-        validation_path = model.dataset_path / f"fold_{k_fold_value}" / "val"
-
-        # Wenn Validation path existiert mache ...
-        if validation_path.exists():
-
-            # Ordner scannen, Bilder werden in Zahlenmatrizen umgewandelt
-            validation_dataset = datasets.ImageFolder(validation_path, transform=transforms.ToTensor())
-
-            # Bilder in Pakete geteilt (sonst out of memory), keine zufällige Reihenfolge
-            validation_loader = DataLoader(
-                validation_dataset,
-                batch_size=self.batch_size,
-                shuffle=False,
-                num_workers=self.num_data_loader_worker
-            )
-
-            # Speichern der Predictions und echten Alter in Listen
-            predicticted_age_container = []
-            real_age_container = []
-
-            # Rechenschritte müssen nicht gemerkt werden => Speicher gespart
-            with torch.no_grad():
-                # Läuft Pakete durch: inputs = Bilder, labels = echtes Alter
-                for inputs, labels in validation_loader:
-                    inputs = inputs.to("cuda")
-                    outputs = self.yolo_model(inputs)
-
-                    if isinstance(outputs, (list, tuple)):
-                        outputs = outputs[0]
-
-                    # Höchste Wahrscheinlichkeit der Altersklasse bestimmen
-                    predicticted_age = torch.argmax(outputs, dim=1).cpu().numpy()
-
-                    # Ergebnisse der aktuellen Pakete an die Container anhängen
-                    predicticted_age_container.extend(predicticted_age)
-                    real_age_container.extend(labels.numpy())
-
-
-            y_predicted = np.array(predicticted_age_container)
-            y_real = np.array(real_age_container)
-
-            # Berechne MAE
-            mae_result = mean_absolute_percentage_error(y_real, y_predicted)
-            cs_result = cumulative_score(y_real, y_predicted, tolerance=1)
-
-            print(f"--> Folder_{k_fold_value} Validation MAE: {mae_result:.2f}")
-            print(f"--> Folder_{k_fold_value} Validation Cumulative Score (±1): {cs_result * 100:.1f}%")
-            model.logger.info(f"Fold {k_fold_value} - Validation MAE: {mae_result:.2f}, CS: {cs_result * 100:.1f}%")
-
-        else:
-
-            print(f"Hinweis: Ordner {validation_path} wurde nicht gefunden. Berechnung abgebrochen.")
 
 
 

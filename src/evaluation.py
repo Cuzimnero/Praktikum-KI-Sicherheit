@@ -2,14 +2,17 @@ from datetime import datetime
 import logging
 from pathlib import Path
 
+import numpy as np
 import torch
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_absolute_error
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from ultralytics import YOLO
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+from src.metrics import cumulative_score
 
 
 class evaluator:
@@ -31,6 +34,8 @@ class evaluator:
         print("starting evaluation")
         accuracy_scores=[]
         self.cm=[]
+        mae_scores=[]
+        cs_scores=[]
 
         for i in range(1, k_fold_value + 1):
             predicted_classes = []
@@ -73,13 +78,27 @@ class evaluator:
 
             fold_accuracy=accuracy_score(actual_classes,predicted_classes)
             self.cm.append(confusion_matrix(actual_classes,predicted_classes))
-            print(f"Fold {i} : accuracy {fold_accuracy}")
-            self.logger.info(f"Fold {i} : accuracy {fold_accuracy}")
-            accuracy_scores.append(fold_accuracy)
 
-        average=sum(accuracy_scores)/k_fold_value
-        self.logger.info(f"Average default training accuracy {average} Group count: {self.classes_count}")
-        return average
+            y_predicted = np.array(predicted_classes)
+            y_real = np.array(actual_classes)
+
+            fold_mae = mean_absolute_error(y_real, y_predicted)
+            fold_cs = cumulative_score(y_real, y_predicted, tolerance=1)
+
+            print(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
+            self.logger.info(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
+
+            accuracy_scores.append(fold_accuracy)
+            mae_scores.append(fold_mae)
+            cs_scores.append(fold_cs)
+
+        average_accuracy=sum(accuracy_scores)/k_fold_value
+        average_mae=sum(mae_scores)/k_fold_value
+        average_cs=sum(cs_scores)/k_fold_value
+
+
+        self.logger.info(f"Average default training accuracy {average_accuracy} | Average MAE: {average_mae:.2f} | Average CS: {average_cs * 100:.1f}% Group count: {self.classes_count} ")
+        return {"accuracy": average_accuracy, "mae":average_mae, "cs":average_cs}
 
 
     def show_confusion_matrix(self,display_labels:list,name:str):
