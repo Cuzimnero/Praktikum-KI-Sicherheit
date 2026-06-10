@@ -11,7 +11,7 @@ from ultralytics import YOLO
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-
+from src import utils
 from src.metrics import cumulative_score
 
 
@@ -49,7 +49,7 @@ class evaluator:
             eval_dataset = datasets.ImageFolder(fold_eval_path, transform= transforms.ToTensor())
             loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=self.num_data_loader_worker)
 
-            self.default_yolo_model = YOLO(self.model_path / "yolo26n-cls.pt")
+            self.default_yolo_model = utils.load_yolo(self.model_path)
             self.yolo_model = self.default_yolo_model.model
 
             in_features = self.yolo_model.model[-1].linear.in_features

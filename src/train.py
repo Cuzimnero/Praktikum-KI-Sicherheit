@@ -83,7 +83,7 @@ class model_trainer:
 
         for i in range(1, k_fold_value + 1):
 
-            self.default_yolo_model = YOLO(self.model_path / "yolo26n-cls.pt")
+            self.default_yolo_model = utils.load_yolo(self.model_path)
             self.yolo_model = self.default_yolo_model.model
             self.yolo_model.train()
 
@@ -130,8 +130,6 @@ class model_trainer:
                            class_count, model.logger, model.main_path, model.num_data_loader_worker)
 
         print(f"Average default training accuracy {eval.val_default_yolo(k_fold_value)}")
-
-
 
 
         if class_type is class_type.Group:

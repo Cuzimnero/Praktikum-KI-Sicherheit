@@ -1,13 +1,22 @@
+from datetime import datetime
 import json
 import shutil as sh
 import pathlib
-import splitfolders as fs
-from src.split_type import split_type,class_type
 
-data_dict_path = pathlib.Path(__file__).parent.parent/"data"
+import matplotlib.pyplot as plt
+import splitfolders as fs
+from matplotlib.ticker import MaxNLocator
+
+from src import utils
+from src.split_type import split_type,class_type
+import pandas as pd
+
 group_map={}
 buckets = list()
-
+config=utils.load_config()
+main_path = pathlib.Path(__file__).parent.parent
+data_dict_path=main_path / config["paths"]["dataset_path"]
+file_name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+"_data_distribution_ "+ ".png"
 
 def split_dataset_k_fold(dataset:pathlib.Path,result_path:pathlib.Path,k:int):
     fs.kfold(dataset,result_path,seed=42,k=k,move= "symlink")
@@ -50,7 +59,7 @@ def process_dataset_groups(dataset:pathlib.Path,result_path:pathlib.Path,k:int,g
     split_dataset_k_fold(result_path/f"group_size_{group_count}", k_fold_sort_path, k)
 
     for folder in k_fold_sort_path.rglob("*"):
-        if folder.is_dir() and not any(folder.iterdir()):
+        if folder.is_dir() and (not any(folder.iterdir())or() ):
             folder.rmdir()
 
 
@@ -138,6 +147,29 @@ def equalize_data(data_set_path:pathlib.Path,split_type:split_type,class_type:cl
         except:
             raise FileNotFoundError("Group list file not found")
 
+def plot_data(data_set_path:pathlib.Path):
+    data_path=data_set_path /"processed"/"default"/"default"
+    data=[]
+    result_dir = main_path / "results"
+    result_dir.mkdir(parents=True, exist_ok=True)
+
+    for sub_dir in data_path.iterdir():
+        if sub_dir.is_dir():
+            for file in sub_dir.iterdir():
+                data.append({
+                 "filename":file.name,
+                 "class":int(sub_dir.name),
+                }
+                )
+    df = pd.DataFrame(data)
+    df["class"].hist()
+    plt.title("Class Distribution")
+    plt.gca().xaxis.set_major_locator(MaxNLocator(nbins=10))
+    plt.savefig(result_dir/file_name)
+    plt.show()
+
+
+        
 
 
 
@@ -154,9 +186,10 @@ def equalize_data(data_set_path:pathlib.Path,split_type:split_type,class_type:cl
 
 
 if __name__ == "__main__":
-    process_dataset(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"default",5)
-    process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,16)
-    equalize_data(data_dict_path/"processed"/"k_fold"/"groups"/"group_size_16",split_type.KFOLD,class_type.Group,5,16)
+    plot_data(data_dict_path)
+    # process_dataset(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"default",5)
+    # process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,16)
+    # equalize_data(data_dict_path/"processed"/"k_fold"/"groups"/"group_size_16",split_type.KFOLD,class_type.Group,5,16)
     #equalize_data(data_dict_path/"processed"/"k_fold"/"default","default",split_type.KFOLD,5)
     #process_dataset(data_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default"/"default",5)
     #process_dataset_groups(data_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default"/"groups",5,4)

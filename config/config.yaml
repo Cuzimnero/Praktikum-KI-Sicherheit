@@ -10,7 +10,7 @@ train:
 
 paths:
   logging_path: "logs"
-  model_path: "model"
+  model_path: "models"
   dataset_path: "data"
 
 
