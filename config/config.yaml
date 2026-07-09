@@ -4,7 +4,7 @@ train:
   num_epochs: 5
   classes_count: 99
   batch_size: 256
-  learning_rate: 0.001
+  learning_rate: 0.005
   num_data_loader_worker: 2
 
 
@@ -12,5 +12,6 @@ paths:
   logging_path: "logs"
   model_path: "models"
   dataset_path: "data"
+  teacher_weights_path: "models/MiVOLO/checkpoints/model_age_utk_4.23.pth"
 
 

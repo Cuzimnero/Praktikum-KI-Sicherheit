@@ -10,3 +10,7 @@ class class_type(Enum):
 class dataset_type(Enum):
     DEFAULT=1
     SCALED=2
+
+class train_type(Enum):
+    default=1
+    distillation=2
