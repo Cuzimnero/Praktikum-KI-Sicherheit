@@ -6,6 +6,9 @@ train:
   batch_size: 256
   learning_rate: 0.005
   num_data_loader_worker: 2
+  alpha: 0.001
+  beta: 0.1
+  temperature: 1.5
 
 
 paths:

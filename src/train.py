@@ -29,6 +29,9 @@ class model_trainer:
         self.learning_rate = config["train"]["learning_rate"]
         self.num_data_loader_worker = int(config["train"]["num_data_loader_worker"])
         self.transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
+        self.alpha=config["train"]["alpha"]
+        self.beta=config["train"]["beta"]
+        self.temperature=config["train"]["temperature"]
 
         self.log_filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
         self.logging_path.mkdir(exist_ok=True, parents=True)
@@ -105,7 +108,8 @@ class model_trainer:
             dataset_type: dataset_type,
             epochs: int,
             k_fold_value: int,
-            classes_count: int
+            classes_count: int,
+            use_soft_distillation:bool
     ):
         self.dataset_path = utils.get_dataset_path(dataset_type, class_type, split_type, classes_count, self.main_path)
 
@@ -113,13 +117,6 @@ class model_trainer:
 
         run_dict_path = self.model_path / "runs" / self.current_dict_name
         run_dict_path.mkdir(parents=True, exist_ok=True)
-
-
-        use_soft_distillation = True
-
-        T = 1.5
-        alpha = 0.01
-        beta = 0.1
 
         soft_loss_function = nn.KLDivLoss(reduction="batchmean")
 
@@ -215,7 +212,7 @@ class model_trainer:
             print(f"Teacher Feature Dim: {teacher_dim}")
             print(f"Adapter: {student_dim} -> {teacher_dim}")
             print(f"Soft-KD aktiv: {use_soft_distillation}")
-            print(f"alpha = {alpha}, beta = {beta}")
+            print(f"alpha = {self.alpha}, beta = {self.beta}")
             print()
 
             for epoch in range(epochs):
@@ -245,19 +242,19 @@ class model_trainer:
 
                     if use_soft_distillation:
                         soft_student = F.log_softmax(
-                            student_predictions / T,
+                            student_predictions / self.temperature,
                             dim=-1
                         )
 
                         soft_teacher = F.softmax(
-                            teacher_logits / T,
+                            teacher_logits / self.temperature,
                             dim=-1
                         )
 
                         soft_loss = soft_loss_function(
                             soft_student,
                             soft_teacher
-                        ) * (T ** 2)
+                        ) * (self.temperature ** 2)
                     else:
                         soft_loss = torch.tensor(
                             0.0,
@@ -282,12 +279,12 @@ class model_trainer:
 
                     if use_soft_distillation:
                         loss = (
-                                (1.0 - alpha) * hard_loss
-                                + alpha * soft_loss
-                                + beta * feature_loss
+                                (1.0 - self.alpha) * hard_loss
+                                + self.alpha * soft_loss
+                                + self.beta * feature_loss
                         )
                     else:
-                        loss = hard_loss + beta * feature_loss
+                        loss = hard_loss + self.beta * feature_loss
 
                     loss.backward()
                     optimizer.step()
@@ -359,9 +356,9 @@ class model_trainer:
 
 if __name__ == "__main__":
     model = model_trainer()
-    model.train_default_yolo(split_type.KFOLD, class_type.default, dataset_type.DEFAULT, epochs=model.num_epochs,
-     k_fold_value=1,classes_count=99)
-    model.evaluate(model,99,class_type.default,1,"Scaled Dataset",train_type.default)
+    model.train_default_yolo(split_type.KFOLD, class_type.Group, dataset_type.DEFAULT, epochs=model.num_epochs,
+     k_fold_value=1,classes_count=16)
+    model.evaluate(model,16,class_type.Group,1,"Test",train_type.default)
 
 
     #model.train_default_yolo(split_type.KFOLD, class_type.Group, dataset_type.DEFAULT, epochs=model.num_epochs,
@@ -384,6 +381,6 @@ if __name__ == "__main__":
     #                          group_count=12,classes_count=12)
     # model.evaluate(model,12,class_type.Group,1,"Unscaled Dataset GroupSize 12")
     #
-    model.train_distillation_yolo(split_type=split_type.KFOLD,class_type=class_type.default,dataset_type=dataset_type.DEFAULT,epochs=model.num_epochs,k_fold_value=1,classes_count=99)
-    model.evaluate(model, class_count=99, class_type=class_type.default, k_fold_value=1, name="Distilled Model - Scaled",train_type=train_type.distillation)
+    model.train_distillation_yolo(split_type=split_type.KFOLD,class_type=class_type.Group,dataset_type=dataset_type.DEFAULT,epochs=model.num_epochs,k_fold_value=1,classes_count=16,use_soft_distillation=True)
+    model.evaluate(model, class_count=16, class_type=class_type.Group, k_fold_value=1, name="Distilled Model - Scaled",train_type=train_type.distillation)
 

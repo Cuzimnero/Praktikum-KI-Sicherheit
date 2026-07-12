@@ -66,11 +66,11 @@ class MiVOLOTrainer(nn.Module):
         if class_type is class_type.Group:
             with open(dataset_path / "group-list.json", "r", encoding="utf-8") as file:
                 groups = json.load(file)
-                group_count = len([group["name"] for group in groups.values()])
-                class_centers = torch.linspace(0, 116, group_count)
+                centers = [(group["start"] + group["end"]) / 2 for group in groups.values()]
+                class_centers = torch.tensor(centers)
         else:
-            class_centers = torch.linspace(0, 116, 99)
-
+            class_centers = torch.linspace(1, 110, 99)
+        print(class_centers)
         self.register_buffer("class_centers", class_centers)
 
         self._printed = False
