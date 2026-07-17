@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from src.split_type import split_type,class_type,dataset_type,train_type
-import utils
+import src.utils as utils
 import torch.nn as nn
 from src.evaluation import evaluator
 import torch
@@ -353,34 +353,4 @@ class model_trainer:
             raise ValueError(f"Unbekannte Feature-Shape: {x.shape}")
 
         return x
-
-if __name__ == "__main__":
-    model = model_trainer()
-    model.train_default_yolo(split_type.KFOLD, class_type.Group, dataset_type.DEFAULT, epochs=model.num_epochs,
-     k_fold_value=1,classes_count=16)
-    model.evaluate(model,16,class_type.Group,1,"Test",train_type.default)
-
-
-    #model.train_default_yolo(split_type.KFOLD, class_type.Group, dataset_type.DEFAULT, epochs=model.num_epochs,
-    # k_fold_value=1,classes_count=16)
-    # model.evaluate(model,16,class_type.Group,1,"Unscaled Dataset")
-    #
-    # model.train_default_yolo(split_type.KFOLD, class_type.Group, dataset_type.DEFAULT, epochs=model.num_epochs,
-    #                          k_fold_value=1, group_count=4,classes_count=4)
-    # model.evaluate(model,4,class_type.Group,1,"Unscaled Dataset GroupSize 4")
-    #
-    #
-    # model.train_default_yolo(split_type.KFOLD, class_type.Group,dataset_type.DEFAULT, epochs=model.num_epochs, k_fold_value=1,
-    #                          group_count=10,classes_count=10)
-    #
-    # model.evaluate(model,10,class_type.Group,1,"Unscaled Dataset GroupSize 10")
-    #
-    #
-    #
-    # model.train_default_yolo(split_type.KFOLD, class_type.Group,dataset_type.DEFAULT, epochs=model.num_epochs, k_fold_value=1,
-    #                          group_count=12,classes_count=12)
-    # model.evaluate(model,12,class_type.Group,1,"Unscaled Dataset GroupSize 12")
-    #
-    model.train_distillation_yolo(split_type=split_type.KFOLD,class_type=class_type.Group,dataset_type=dataset_type.DEFAULT,epochs=model.num_epochs,k_fold_value=1,classes_count=16,use_soft_distillation=True)
-    model.evaluate(model, class_count=16, class_type=class_type.Group, k_fold_value=1, name="Distilled Model - Scaled",train_type=train_type.distillation)
 
