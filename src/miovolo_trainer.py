@@ -1,11 +1,10 @@
-import json
 from pathlib import Path
 import models.MiVOLO.mivolo.model.mivolo_model as mvm
 import torch
 import torch.nn as nn
 
 class MiVOLOTrainer(nn.Module):
-    def __init__(self, weights_path, class_type, dataset_path: Path, sigma=4.0):
+    def __init__(self, weights_path, class_type, dataset_path: Path, class_names=None, sigma=4.0):
         super().__init__()
 
         checkpoint = torch.load(weights_path, map_location="cpu")
@@ -63,14 +62,17 @@ class MiVOLOTrainer(nn.Module):
 
         self.sigma = sigma
 
-        if class_type is class_type.Group:
-            with open(dataset_path / "group-list.json", "r", encoding="utf-8") as file:
-                groups = json.load(file)
-                centers = [(group["start"] + group["end"]) / 2 for group in groups.values()]
-                class_centers = torch.tensor(centers)
-        else:
-            class_centers = torch.linspace(1, 110, 99)
-        print(class_centers)
+        if class_names is None:
+            raise ValueError(
+                "class_names fehlt. Übergib fold_dataset.classes an MiVOLOTrainer."
+            )
+
+        class_centers = compute_class_centers_from_names(class_names)
+
+        print("Class Centers passend zu ImageFolder:")
+        for idx, (name, center) in enumerate(zip(class_names, class_centers.tolist())):
+            print(f"{idx}: {name} -> {center}")
+
         self.register_buffer("class_centers", class_centers)
 
         self._printed = False
@@ -98,3 +100,18 @@ class MiVOLOTrainer(nn.Module):
 
         return teacher_logits
 
+def compute_class_centers_from_names(class_names):
+    centers = []
+
+    for name in class_names:
+        name = str(name)
+
+        if "-" in name:
+            start, end = name.split("-")
+            center = (float(start) + float(end)) / 2.0
+        else:
+            center = float(name)
+
+        centers.append(center)
+
+    return torch.tensor(centers, dtype=torch.float32)

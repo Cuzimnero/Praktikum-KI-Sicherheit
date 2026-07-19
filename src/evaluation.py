@@ -12,7 +12,6 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from src import utils
-from src.metrics import cumulative_score
 from src.split_type import train_type
 
 
@@ -54,15 +53,70 @@ class evaluator:
             if self.dataset_path is None:
                 raise ValueError("Dataset path not initialized")
 
+            fold_train_path = self.dataset_path / f"fold_{i}" / "train"
             fold_eval_path = self.dataset_path / f"fold_{i}" / "val"
-            eval_dataset = datasets.ImageFolder(fold_eval_path, transform= transforms.ToTensor())
-            loader=DataLoader(eval_dataset,batch_size=self.batch_size,num_workers=self.num_data_loader_worker)
+
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor()
+            ])
+
+            train_dataset = datasets.ImageFolder(fold_train_path, transform=transform)
+            eval_dataset = datasets.ImageFolder(fold_eval_path, transform=transform)
+
+            train_class_to_idx = train_dataset.class_to_idx
+            train_classes = train_dataset.classes
+
+            print("Train Klassenanzahl:", len(train_classes))
+            print("Eval Klassenanzahl vor Mapping:", len(eval_dataset.classes))
+
+            filtered_samples = []
+            skipped_classes = set()
+
+            for path, old_label in eval_dataset.samples:
+                class_name = eval_dataset.classes[old_label]
+
+                if class_name in train_class_to_idx:
+                    new_label = train_class_to_idx[class_name]
+                    filtered_samples.append((path, new_label))
+                else:
+                    skipped_classes.add(class_name)
+
+            if len(filtered_samples) == 0:
+                raise ValueError("Keine Eval-Bilder passen zu den Train-Klassen.")
+
+            eval_dataset.samples = filtered_samples
+            eval_dataset.imgs = filtered_samples
+            eval_dataset.targets = [label for _, label in filtered_samples]
+            eval_dataset.classes = train_classes
+            eval_dataset.class_to_idx = train_class_to_idx
+
+            actual_classes_count = len(train_classes)
+            class_centers = compute_class_centers_from_names(train_classes)
+
+            print("Eval Klassenanzahl nach Mapping:", actual_classes_count)
+            print("Max Label im Eval Dataset:", max(eval_dataset.targets))
+            print("Output Klassen:", actual_classes_count)
+
+            if skipped_classes:
+                print("Übersprungene Eval-Klassen, die nicht im Train-Set waren:")
+                print(sorted(skipped_classes, key=lambda x: float(x) if str(x).replace('.', '', 1).isdigit() else x))
+
+            loader = DataLoader(
+                eval_dataset,
+                batch_size=self.batch_size,
+                num_workers=self.num_data_loader_worker
+            )
 
             self.default_yolo_model = utils.load_yolo(self.model_path)
             self.yolo_model = self.default_yolo_model.model
 
             in_features = self.yolo_model.model[-1].linear.in_features
-            self.yolo_model.model[-1].linear = nn.Linear(in_features, self.classes_count)
+            self.yolo_model.model[-1].linear = nn.Linear(
+                in_features,
+                actual_classes_count
+            )
+
             self.yolo_model.to("cuda")
 
             try:
@@ -76,13 +130,23 @@ class evaluator:
             with torch.no_grad():
                 for inputs, labels in loader:
                     inputs, labels = inputs.to("cuda"), labels.to("cuda")
-                    #outputs=self.yolo_model.forward(inputs)
+
                     outputs = self.yolo_model(inputs)
+
                     if isinstance(outputs, (list, tuple)):
                         outputs = outputs[0]
-                    loss=self.loss_function(outputs, labels)
-                    test_loss+=loss.item()
-                    predicted_classes.extend(torch.argmax(outputs, 1).cpu().numpy())
+
+                    if labels.max().item() >= outputs.shape[1]:
+                        print("Fehler vor Loss:")
+                        print("Max Label:", labels.max().item())
+                        print("Output Klassen:", outputs.shape[1])
+                        print("Labels:", labels)
+                        raise ValueError("Ein Label ist größer/gleich der Anzahl der Modell-Outputs.")
+
+                    loss = self.loss_function(outputs, labels)
+                    test_loss += loss.item()
+
+                    predicted_classes.extend(torch.argmax(outputs, dim=1).cpu().numpy())
                     actual_classes.extend(labels.cpu().numpy())
 
             fold_accuracy=accuracy_score(actual_classes,predicted_classes)
@@ -91,8 +155,11 @@ class evaluator:
             y_predicted = np.array(predicted_classes)
             y_real = np.array(actual_classes)
 
-            fold_mae = mean_absolute_error(y_real, y_predicted)
-            fold_cs = cumulative_score(y_real, y_predicted, tolerance=1)
+            y_predicted_ages = class_centers[y_predicted]
+            y_real_ages = class_centers[y_real]
+
+            fold_mae = mean_absolute_error(y_real_ages,y_predicted_ages)
+            fold_cs = np.mean(np.abs(y_real_ages - y_predicted_ages) <= 1)
 
             print(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
             self.logger.info(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
@@ -130,4 +197,16 @@ class evaluator:
             file_name = f"confusion_matrix_fold_{index + 1}_" + datetime.now().strftime("%Y-%m-%d_%H-%M") + ".png"
             fig.savefig(result_dir / file_name, bbox_inches='tight')
 
+def compute_class_centers_from_names(class_names):
+    centers = []
+    for name in class_names:
+        name = str(name)
+        if "-" in name:
+         start, end = name.split("-")
+         center = (float(start) + float(end)) / 2.0
+        else:
+         center = float(name)
 
+        centers.append(center)
+
+    return np.array(centers, dtype=np.float32)

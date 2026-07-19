@@ -67,10 +67,27 @@ class model_trainer:
 
             fold_train_path = self.dataset_path / f"fold_{i}" / "train"
             fold_dataset = datasets.ImageFolder(fold_train_path, transform= self.transform)
+
+            print("ImageFolder Klassenreihenfolge:")
+            for idx, class_name in enumerate(fold_dataset.classes):
+                print(idx, class_name)
+
+            print("Class to idx:")
+            print(fold_dataset.class_to_idx)
+
+
+
+
+
+
+
+
             loader = DataLoader(fold_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_data_loader_worker)
 
+
+            actual_classes_count = len(fold_dataset.classes)
             in_features = self.yolo_model.model[-1].linear.in_features
-            self.yolo_model.model[-1].linear = nn.Linear(in_features, classes_count)
+            self.yolo_model.model[-1].linear = nn.Linear(in_features, actual_classes_count)
 
 
             self.yolo_model.to("cuda")
@@ -125,10 +142,39 @@ class model_trainer:
             self.yolo_model = self.default_yolo_model.model
             self.yolo_model.train()
 
+            fold_training_path = self.dataset_path / f"fold_{i}" / "train"
+
+            transform = transforms.Compose([transforms.Resize((224, 224)),transforms.ToTensor()])
+
+            fold_dataset = datasets.ImageFolder(fold_training_path,transform=transform)
+
+            print("ImageFolder Klassenreihenfolge:")
+            for idx, class_name in enumerate(fold_dataset.classes):
+                print(idx, class_name)
+
+            actual_classes_count = len(fold_dataset.classes)
+
+            print(f"Gewünschte Klassenanzahl: {classes_count}")
+            print(f"Tatsächlich gefundene Klassenanzahl: {actual_classes_count}")
+
+            if actual_classes_count != classes_count:
+                print(
+                    f"Achtung: Es wurde classes_count={classes_count} angegeben, "
+                    f"aber ImageFolder hat nur {actual_classes_count} Klassen gefunden."
+                )
+                print("Für diesen Lauf wird actual_classes_count benutzt.")
+
+            loader = DataLoader(
+                fold_dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.num_data_loader_worker
+            )
+
             number_of_properties = self.yolo_model.model[-1].linear.in_features
             self.yolo_model.model[-1].linear = nn.Linear(
                 number_of_properties,
-                classes_count
+                actual_classes_count
             )
 
             self.yolo_model.to("cuda")
@@ -136,7 +182,8 @@ class model_trainer:
             teacher_model = MiVOLOTrainer(
                 weights_path=self.teacher_weights_path,
                 class_type=class_type,
-                dataset_path=self.dataset_path
+                dataset_path=self.dataset_path,
+                class_names = fold_dataset.classes
             )
 
             teacher_model.to("cuda")
@@ -155,25 +202,6 @@ class model_trainer:
             student_extractor = EmbeddingExtractor(
                 model=self.yolo_model.model,
                 layer_name=student_layer_name
-            )
-
-            fold_training_path = self.dataset_path / f"fold_{i}" / "train"
-
-            transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor()
-            ])
-
-            fold_dataset = datasets.ImageFolder(
-                fold_training_path,
-                transform=transform
-            )
-
-            loader = DataLoader(
-                fold_dataset,
-                batch_size=self.batch_size,
-                shuffle=True,
-                num_workers=self.num_data_loader_worker
             )
 
 
@@ -354,3 +382,61 @@ class model_trainer:
 
         return x
 
+if __name__ == "__main__":
+    print("Starte train.py...")
+
+    model = model_trainer()
+
+    TEST_CLASSES = 97
+
+    print("Teacher Weights Path:", model.teacher_weights_path)
+    print("Teacher exists:", model.teacher_weights_path.exists())
+
+    if not model.teacher_weights_path.exists():
+        raise FileNotFoundError(
+            f"Teacher Checkpoint nicht gefunden: {model.teacher_weights_path}"
+        )
+
+    model.train_default_yolo(
+        split_type=split_type.KFOLD,
+        class_type=class_type.default,
+        dataset_type=dataset_type.DEFAULT,
+        epochs= 5,
+        k_fold_value=1,
+        classes_count=TEST_CLASSES
+    )
+
+    model.evaluate(
+        model=model,
+        class_count=TEST_CLASSES,
+        class_type=class_type.default,
+        k_fold_value=1,
+        name="YOLO Default 97 Klassen",
+        train_type=train_type.default
+    )
+
+    print("Starte Distillation Training...")
+
+    model.train_distillation_yolo(
+        split_type=split_type.KFOLD,
+        class_type=class_type.default,
+        dataset_type=dataset_type.DEFAULT,
+        epochs=5,
+        k_fold_value=1,
+        classes_count=TEST_CLASSES,
+        use_soft_distillation=True
+    )
+
+    print("Training fertig.")
+    print("Starte Evaluation...")
+
+    model.evaluate(
+        model=model,
+        class_count=TEST_CLASSES,
+        class_type=class_type.default,
+        k_fold_value=1,
+        name="YOLO Distillation 97 Klassen",
+        train_type=train_type.distillation
+    )
+
+    print("Evaluation fertig.")
