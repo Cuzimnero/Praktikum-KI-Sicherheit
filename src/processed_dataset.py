@@ -65,6 +65,7 @@ def process_dataset_groups(dataset:pathlib.Path,result_path:pathlib.Path,k:int,g
 
 
 def create_groups(group_count:int,dest_dir:pathlib.Path):
+    group_map.clear()
     if not buckets:
         raise RuntimeError("No buckets found")
 
@@ -169,32 +170,22 @@ def plot_data(data_set_path:pathlib.Path):
     plt.show()
 
 
-        
-
-
-
-
-
-
-
-
-
-
 
 
 
 
 
 if __name__ == "__main__":
-    plot_data(data_dict_path)
-    # process_dataset(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"default",5)
-    # process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,16)
-    # equalize_data(data_dict_path/"processed"/"k_fold"/"groups"/"group_size_16",split_type.KFOLD,class_type.Group,5,16)
-    #equalize_data(data_dict_path/"processed"/"k_fold"/"default","default",split_type.KFOLD,5)
-    #process_dataset(data_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default"/"default",5)
-    #process_dataset_groups(data_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default"/"groups",5,4)
-    #process_dataset_groups(data_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default"/"groups",5,10)
-    #process_dataset_groups(data_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_path/"processed"/"default"/"groups",5,12)
-
+    # plot_data(data_dict_path)
+    process_dataset(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"default",5)
+    process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,16)
+    process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,10)
+    process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,13)
+    equalize_data(data_dict_path / "processed" / "k_fold" / "groups" / "group_size_16", split_type.KFOLD,
+                  class_type.Group, 5, 16)
+    equalize_data(data_dict_path / "processed" / "k_fold" / "groups" / "group_size_10", split_type.KFOLD,
+                  class_type.Group, 5, 10)
+    equalize_data(data_dict_path / "processed" / "k_fold" / "groups" / "group_size_13", split_type.KFOLD,
+                  class_type.Group, 5, 13)
 
 

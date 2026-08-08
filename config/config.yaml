@@ -1,14 +1,15 @@
 dataset_processing:
 
 train:
-  num_epochs: 5
+  yolo_num_epochs: 15
+  destillation_num_epochs: 30
   classes_count: 99
   batch_size: 256
-  learning_rate: 0.005
-  num_data_loader_worker: 2
-  alpha: 0.01
-  beta: 0.1
-  temperature: 1.5
+  learning_rate: 0.0005
+  num_data_loader_worker: 4
+  alpha: 0.5
+  beta: 0.5
+  temperature: 2
 
 
 paths:

@@ -23,7 +23,8 @@ class model_trainer:
         self.logging_path = self.main_path / config["paths"]["logging_path"]
         self.teacher_weights_path = self.main_path / config["paths"]["teacher_weights_path"]
 
-        self.num_epochs = config["train"]["num_epochs"]
+        self.num_yolo_epochs = config["train"]["yolo_num_epochs"]
+        self.num_destillation_epochs=config["train"]["destillation_num_epochs"]
         self.classes_count = config["train"]["classes_count"]
         self.batch_size = config["train"]["batch_size"]
         self.learning_rate = config["train"]["learning_rate"]
@@ -74,12 +75,6 @@ class model_trainer:
 
             print("Class to idx:")
             print(fold_dataset.class_to_idx)
-
-
-
-
-
-
 
 
             loader = DataLoader(fold_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_data_loader_worker)
@@ -382,61 +377,3 @@ class model_trainer:
 
         return x
 
-if __name__ == "__main__":
-    print("Starte train.py...")
-
-    model = model_trainer()
-
-    TEST_CLASSES = 97
-
-    print("Teacher Weights Path:", model.teacher_weights_path)
-    print("Teacher exists:", model.teacher_weights_path.exists())
-
-    if not model.teacher_weights_path.exists():
-        raise FileNotFoundError(
-            f"Teacher Checkpoint nicht gefunden: {model.teacher_weights_path}"
-        )
-
-    model.train_default_yolo(
-        split_type=split_type.KFOLD,
-        class_type=class_type.default,
-        dataset_type=dataset_type.DEFAULT,
-        epochs= 5,
-        k_fold_value=1,
-        classes_count=TEST_CLASSES
-    )
-
-    model.evaluate(
-        model=model,
-        class_count=TEST_CLASSES,
-        class_type=class_type.default,
-        k_fold_value=1,
-        name="YOLO Default 97 Klassen",
-        train_type=train_type.default
-    )
-
-    print("Starte Distillation Training...")
-
-    model.train_distillation_yolo(
-        split_type=split_type.KFOLD,
-        class_type=class_type.default,
-        dataset_type=dataset_type.DEFAULT,
-        epochs=5,
-        k_fold_value=1,
-        classes_count=TEST_CLASSES,
-        use_soft_distillation=True
-    )
-
-    print("Training fertig.")
-    print("Starte Evaluation...")
-
-    model.evaluate(
-        model=model,
-        class_count=TEST_CLASSES,
-        class_type=class_type.default,
-        k_fold_value=1,
-        name="YOLO Distillation 97 Klassen",
-        train_type=train_type.distillation
-    )
-
-    print("Evaluation fertig.")
