@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.functional as F
 
 class EmbeddingExtractor:
 
@@ -44,3 +45,4 @@ class EmbeddingExtractor:
         if self.hook is not None:
             self.hook.remove()
             self.hook = None
+

@@ -359,21 +359,22 @@ class model_trainer:
         eval.show_confusion_matrix(group_list, name)
         eval.safe_confusion_matrix()
 
-    def pool_embedding(self,x):
-        if isinstance(x, (tuple, list)):
-            x = x[0]
 
-        if x.dim() == 4:
-            x = F.adaptive_avg_pool2d(x, 1).flatten(1)
+    def pool_embedding(self, x):
+      if isinstance(x, (tuple, list)):
+        x = x[0]
 
-        elif x.dim() == 3:
-            x = x.mean(dim=1)
+      if x.dim() == 4:
+        x = F.adaptive_avg_pool2d(x, 1).flatten(1)
 
-        elif x.dim() == 2:
-            pass
+      elif x.dim() == 3:
+        x = x.mean(dim=1)
 
-        else:
-            raise ValueError(f"Unbekannte Feature-Shape: {x.shape}")
+      elif x.dim() == 2:
+        pass
 
-        return x
+      else:
+        raise ValueError(f"Unbekannte Feature-Shape: {x.shape}")
+
+      return x
 

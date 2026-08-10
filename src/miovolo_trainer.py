@@ -3,6 +3,7 @@ import models.MiVOLO.mivolo.model.mivolo_model as mvm
 import torch
 import torch.nn as nn
 
+
 class MiVOLOTrainer(nn.Module):
     def __init__(self, weights_path, class_type, dataset_path: Path, class_names=None, sigma=4.0):
         super().__init__()
@@ -115,3 +116,4 @@ def compute_class_centers_from_names(class_names):
         centers.append(center)
 
     return torch.tensor(centers, dtype=torch.float32)
+
