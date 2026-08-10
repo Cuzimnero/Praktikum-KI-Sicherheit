@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 class MiVOLOTrainer(nn.Module):
-    def __init__(self, weights_path, class_type, dataset_path: Path, class_names=None, sigma=4.0):
+    def __init__(self, weights_path, class_type, dataset_path: Path, sigma,class_names=None):
         super().__init__()
 
         checkpoint = torch.load(weights_path, map_location="cpu")
@@ -64,9 +64,7 @@ class MiVOLOTrainer(nn.Module):
         self.sigma = sigma
 
         if class_names is None:
-            raise ValueError(
-                "class_names fehlt. Übergib fold_dataset.classes an MiVOLOTrainer."
-            )
+            raise ValueError("class_names fehlt. Übergib fold_dataset.classes an MiVOLOTrainer.")
 
         class_centers = compute_class_centers_from_names(class_names)
 
@@ -83,6 +81,8 @@ class MiVOLOTrainer(nn.Module):
 
         with torch.no_grad():
             out = self.mivolo(x)
+
+        #print("Min Wert im Batch:", out.min().item(), "| Max Wert im Batch:", out.max().item())
 
         if isinstance(out, tuple):
             out = out[0]

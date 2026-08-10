@@ -24,7 +24,9 @@ def evaluate_teacher(weights_path, data_path, batch_size=64):
         weights_path=weights_path,
         class_type=class_type.default,
         dataset_path=data_path,
+        sigma= 1.5,
         class_names=dataset.classes
+
     )
 
     teacher.to(device)

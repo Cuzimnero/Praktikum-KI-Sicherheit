@@ -33,6 +33,7 @@ class model_trainer:
         self.alpha=config["train"]["alpha"]
         self.beta=config["train"]["beta"]
         self.temperature=config["train"]["temperature"]
+        self.sigma=config["train"]["sigma"]
 
         self.log_filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
         self.logging_path.mkdir(exist_ok=True, parents=True)
@@ -122,6 +123,7 @@ class model_trainer:
             k_fold_value: int,
             classes_count: int,
             use_soft_distillation:bool
+
     ):
         self.dataset_path = utils.get_dataset_path(dataset_type, class_type, split_type, classes_count, self.main_path)
 
@@ -153,44 +155,27 @@ class model_trainer:
             print(f"Tatsächlich gefundene Klassenanzahl: {actual_classes_count}")
 
             if actual_classes_count != classes_count:
-                print(
-                    f"Achtung: Es wurde classes_count={classes_count} angegeben, "
-                    f"aber ImageFolder hat nur {actual_classes_count} Klassen gefunden."
-                )
+                print(f"Achtung: Es wurde classes_count={classes_count} angegeben, "f"aber ImageFolder hat nur {actual_classes_count} Klassen gefunden.")
                 print("Für diesen Lauf wird actual_classes_count benutzt.")
 
-            loader = DataLoader(
-                fold_dataset,
-                batch_size=self.batch_size,
-                shuffle=True,
-                num_workers=self.num_data_loader_worker
-            )
+            loader = DataLoader(fold_dataset,batch_size=self.batch_size,shuffle=True,num_workers=self.num_data_loader_worker)
 
             number_of_properties = self.yolo_model.model[-1].linear.in_features
-            self.yolo_model.model[-1].linear = nn.Linear(
-                number_of_properties,
-                actual_classes_count
-            )
+            self.yolo_model.model[-1].linear = nn.Linear(number_of_properties,actual_classes_count)
 
             self.yolo_model.to("cuda")
 
-            teacher_model = MiVOLOTrainer(
-                weights_path=self.teacher_weights_path,
-                class_type=class_type,
-                dataset_path=self.dataset_path,
-                class_names = fold_dataset.classes
-            )
+            for param in self.yolo_model.parameters():
+                param.requires_grad = True
+
+            teacher_model = MiVOLOTrainer(weights_path=self.teacher_weights_path,class_type=class_type,dataset_path=self.dataset_path,sigma= self.sigma,class_names = fold_dataset.classes)
 
             teacher_model.to("cuda")
             teacher_model.eval()
 
-            for param in teacher_model.parameters():
-                param.requires_grad = False
+            for param in teacher_model.parameters():param.requires_grad = False
 
-            self.teacher_extractor = EmbeddingExtractor(
-                model=teacher_model.mivolo,
-                layer_name="norm"
-            )
+            self.teacher_extractor = EmbeddingExtractor(model=teacher_model.mivolo,layer_name="norm")
 
             student_layer_name = str(len(self.yolo_model.model) - 2)
 
@@ -200,7 +185,7 @@ class model_trainer:
             )
 
 
-            print("Führe Dummy-Pass zur Feature-Analyse aus")
+            print("Künstliches Bild wird geschickt")
 
             with torch.no_grad():
                 dummy_input = torch.rand(1, 3, 224, 224).to("cuda")
@@ -210,25 +195,14 @@ class model_trainer:
 
                 dummy_student_features = self.pool_embedding(student_extractor.get_embedding())
 
-                dummy_teacher_features = self.pool_embedding(
-                    self.teacher_extractor.get_embedding()
-                )
+                dummy_teacher_features = self.pool_embedding(self.teacher_extractor.get_embedding())
 
                 student_dim = dummy_student_features.shape[1]
                 teacher_dim = dummy_teacher_features.shape[1]
 
-            feature_adapter = nn.Linear(
-                student_dim,
-                teacher_dim
-            ).to("cuda")
+            feature_adapter = nn.Linear(student_dim,teacher_dim).to("cuda")
 
-            optimizer = torch.optim.AdamW(
-                [
-                    {"params": self.yolo_model.parameters()},
-                    {"params": feature_adapter.parameters()}
-                ],
-                lr=self.learning_rate
-            )
+            optimizer = torch.optim.AdamW([{"params": self.yolo_model.parameters(), "lr": self.learning_rate},{"params": feature_adapter.parameters(), "lr": self.learning_rate * 10}])
 
             print("Feature-Distillation Setup:")
             print(f"Student Feature Dim: {student_dim}")
@@ -258,31 +232,20 @@ class model_trainer:
                     with torch.no_grad():
                         teacher_logits = teacher_model(inputs)
 
-                    hard_loss = self.loss_function(
-                        student_predictions,
-                        labels
-                    )
+                    hard_loss = self.loss_function(student_predictions,labels)
 
-                    if use_soft_distillation:
-                        soft_student = F.log_softmax(
-                            student_predictions / self.temperature,
-                            dim=-1
-                        )
+                    label_ages = teacher_model.class_centers[labels]
+                    valid_teacher_interval = (label_ages >= 21) & (label_ages <= 60)
 
-                        soft_teacher = F.softmax(
-                            teacher_logits / self.temperature,
-                            dim=-1
-                        )
 
-                        soft_loss = soft_loss_function(
-                            soft_student,
-                            soft_teacher
-                        ) * (self.temperature ** 2)
+                    if use_soft_distillation and valid_teacher_interval.any():
+                        soft_student = F.log_softmax(student_predictions[valid_teacher_interval] / self.temperature,dim=-1)
+                        soft_teacher = F.softmax(teacher_logits[valid_teacher_interval] / self.temperature,dim=-1)
+
+                        soft_loss = soft_loss_function(soft_student, soft_teacher) * (self.temperature ** 2)
                     else:
-                        soft_loss = torch.tensor(
-                            0.0,
-                            device=inputs.device
-                        )
+                        soft_loss = torch.tensor(0.0, device=inputs.device)
+
 
                     student_features = student_extractor.get_embedding()
                     teacher_features = self.teacher_extractor.get_embedding()
@@ -290,22 +253,12 @@ class model_trainer:
                     student_features = self.pool_embedding(student_features)
                     teacher_features = self.pool_embedding(teacher_features).detach()
 
-                    adapted_student_features = feature_adapter(
-                        student_features
-                    )
+                    adapted_student_features = feature_adapter(student_features)
 
-                    feature_loss = 1.0 - F.cosine_similarity(
-                        adapted_student_features,
-                        teacher_features,
-                        dim=1
-                    ).mean()
+                    feature_loss = 1.0 - F.cosine_similarity(adapted_student_features,teacher_features,dim=1).mean()
 
                     if use_soft_distillation:
-                        loss = (
-                                (1.0 - self.alpha) * hard_loss
-                                + self.alpha * soft_loss
-                                + self.beta * feature_loss
-                        )
+                        loss = ((1.0 - self.alpha) * hard_loss+ self.alpha * soft_loss+ self.beta * feature_loss)
                     else:
                         loss = hard_loss + self.beta * feature_loss
 
@@ -335,10 +288,7 @@ class model_trainer:
                     f"Feature: {epoch_feature_loss / num_batches:.4f}"
                 )
 
-            torch.save(
-                self.yolo_model.state_dict(),
-                run_dict_path / f"yolo26n-cls_distillation_fold{i}.pt"
-            )
+            torch.save(self.yolo_model.state_dict(),run_dict_path / f"yolo26n-cls_distillation_fold{i}.pt")
 
             self.teacher_extractor.remove()
             student_extractor.remove()
@@ -346,7 +296,7 @@ class model_trainer:
 
     def evaluate(self,model:model_trainer,class_count:int,class_type:class_type,k_fold_value:int,name:str,train_type:train_type):
         eval = evaluator(model.current_dict_name, model.model_path, model.batch_size, model.dataset_path,
-                           class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type)
+                         class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type)
 
         print(f"Average default training accuracy {eval.val_default_yolo(k_fold_value)}")
 

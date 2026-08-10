@@ -16,10 +16,7 @@ class EmbeddingExtractor:
                 return module
 
         available_layers = [name for name, _ in self.model.named_modules()]
-        raise ValueError(
-            f"Layer '{self.layer_name}' wurde nicht gefunden.\n"
-            f"Verfügbare Layer:\n{available_layers}"
-        )
+        raise ValueError(f"Layer '{self.layer_name}' wurde nicht gefunden.\n"f"Verfügbare Layer:\n{available_layers}")
 
     def _hook_fn(self, module, inputs, output):
         if isinstance(output, (tuple, list)):
@@ -34,10 +31,7 @@ class EmbeddingExtractor:
 
     def get_embedding(self):
         if self.embedding is None:
-            raise RuntimeError(
-                f"Noch kein Embedding für Layer '{self.layer_name}' gespeichert. "
-                f"Erst Forward Pass ausführen."
-            )
+            raise RuntimeError(f"Noch kein Embedding für Layer '{self.layer_name}' gespeichert. "f"Erst Forward Pass ausführen.")
 
         return self.embedding
 
