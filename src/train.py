@@ -35,6 +35,16 @@ class model_trainer:
         self.temperature=config["train"]["temperature"]
         self.sigma=config["train"]["sigma"]
 
+        level_mapping = {
+            "debug": logging.DEBUG,
+            "info": logging.INFO,
+            "warning": logging.WARNING,
+            "error": logging.ERROR,
+            "critical": logging.CRITICAL
+        }
+
+        logging_mode_str = config["logging"].get("logging_mode")
+        logging_mode = level_mapping.get(logging_mode_str, logging.INFO)
         self.log_filename = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
         self.logging_path.mkdir(exist_ok=True, parents=True)
         log_file = self.logging_path / self.log_filename
@@ -42,7 +52,7 @@ class model_trainer:
             filename=str(log_file),
             filemode='a',
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.INFO,
+            level=logging_mode,
             force=True
         )
         self.logger = logging.getLogger(__name__)
@@ -70,12 +80,8 @@ class model_trainer:
             fold_train_path = self.dataset_path / f"fold_{i}" / "train"
             fold_dataset = datasets.ImageFolder(fold_train_path, transform= self.transform)
 
-            print("ImageFolder Klassenreihenfolge:")
-            for idx, class_name in enumerate(fold_dataset.classes):
-                print(idx, class_name)
-
-            print("Class to idx:")
-            print(fold_dataset.class_to_idx)
+            self.logger.debug("Class to idx:")
+            self.logger.debug(fold_dataset.class_to_idx)
 
 
             loader = DataLoader(fold_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_data_loader_worker)
@@ -145,18 +151,14 @@ class model_trainer:
 
             fold_dataset = datasets.ImageFolder(fold_training_path,transform=transform)
 
-            print("ImageFolder Klassenreihenfolge:")
-            for idx, class_name in enumerate(fold_dataset.classes):
-                print(idx, class_name)
-
             actual_classes_count = len(fold_dataset.classes)
 
-            print(f"Gewünschte Klassenanzahl: {classes_count}")
-            print(f"Tatsächlich gefundene Klassenanzahl: {actual_classes_count}")
+            self.logger.debug(f"Gewünschte Klassenanzahl: {classes_count}")
+            self.logger.debug(f"Tatsächlich gefundene Klassenanzahl: {actual_classes_count}")
 
             if actual_classes_count != classes_count:
-                print(f"Achtung: Es wurde classes_count={classes_count} angegeben, "f"aber ImageFolder hat nur {actual_classes_count} Klassen gefunden.")
-                print("Für diesen Lauf wird actual_classes_count benutzt.")
+                self.logger.warning(f"Achtung: Es wurde classes_count={classes_count} angegeben, "f"aber ImageFolder hat nur {actual_classes_count} Klassen gefunden.")
+                self.logger.warning("Für diesen Lauf wird actual_classes_count benutzt.")
 
             loader = DataLoader(fold_dataset,batch_size=self.batch_size,shuffle=True,num_workers=self.num_data_loader_worker)
 
@@ -168,7 +170,7 @@ class model_trainer:
             for param in self.yolo_model.parameters():
                 param.requires_grad = True
 
-            teacher_model = MiVOLOTrainer(weights_path=self.teacher_weights_path,class_type=class_type,dataset_path=self.dataset_path,sigma= self.sigma,class_names = fold_dataset.classes)
+            teacher_model = MiVOLOTrainer(weights_path=self.teacher_weights_path,class_type=class_type,dataset_path=self.dataset_path,sigma= self.sigma,logger=self.logger,class_names = fold_dataset.classes)
 
             teacher_model.to("cuda")
             teacher_model.eval()
@@ -184,8 +186,7 @@ class model_trainer:
                 layer_name=student_layer_name
             )
 
-
-            print("Künstliches Bild wird geschickt")
+            self.logger.debug("Künstliches Bild wird geschickt")
 
             with torch.no_grad():
                 dummy_input = torch.rand(1, 3, 224, 224).to("cuda")
@@ -202,15 +203,14 @@ class model_trainer:
 
             feature_adapter = nn.Linear(student_dim,teacher_dim).to("cuda")
 
-            optimizer = torch.optim.AdamW([{"params": self.yolo_model.parameters(), "lr": self.learning_rate},{"params": feature_adapter.parameters(), "lr": self.learning_rate * 10}])
+            optimizer = torch.optim.AdamW([{"params": self.yolo_model.parameters(), "lr": self.learning_rate},{"params": feature_adapter.parameters(), "lr": self.learning_rate}])
 
-            print("Feature-Distillation Setup:")
-            print(f"Student Feature Dim: {student_dim}")
-            print(f"Teacher Feature Dim: {teacher_dim}")
-            print(f"Adapter: {student_dim} -> {teacher_dim}")
-            print(f"Soft-KD aktiv: {use_soft_distillation}")
-            print(f"alpha = {self.alpha}, beta = {self.beta}")
-            print()
+            self.logger.debug("Feature-Distillation Setup:")
+            self.logger.debug(f"Student Feature Dim: {student_dim}")
+            self.logger.debug(f"Teacher Feature Dim: {teacher_dim}")
+            self.logger.debug(f"Adapter: {student_dim} -> {teacher_dim}")
+            self.logger.debug(f"Soft-KD aktiv: {use_soft_distillation}")
+            self.logger.debug(f"alpha = {self.alpha}, beta = {self.beta}")
 
             for epoch in range(epochs):
                 epoch_total_loss = 0.0

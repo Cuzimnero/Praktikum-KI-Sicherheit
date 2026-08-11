@@ -1,17 +1,17 @@
 dataset_processing:
 
 train:
-  yolo_num_epochs: 30
-  destillation_num_epochs: 30
+  yolo_num_epochs: 10
+  destillation_num_epochs: 10
   classes_count: 99
   batch_size: 256
   learning_rate: 0.0005
   num_data_loader_worker: 4
-  alpha: 0.2
+  alpha: 0.5
   beta: 0.02
   temperature: 1
   sigma: 2.0
-  K: 1
+  cs_threshold: 1
 
 
 paths:
@@ -20,4 +20,6 @@ paths:
   dataset_path: "data"
   teacher_weights_path: "models/MiVOLO/checkpoints/model_age_utk_4.23.pth"
 
+logging:
+  logging_mode: "debug"
 

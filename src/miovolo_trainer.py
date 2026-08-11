@@ -2,21 +2,22 @@ from pathlib import Path
 import models.MiVOLO.mivolo.model.mivolo_model as mvm
 import torch
 import torch.nn as nn
-
+import logging
 
 class MiVOLOTrainer(nn.Module):
-    def __init__(self, weights_path, class_type, dataset_path: Path, sigma,class_names=None):
+    def __init__(self, weights_path, class_type, dataset_path: Path, sigma,logger:logging.Logger,class_names=None):
         super().__init__()
 
         checkpoint = torch.load(weights_path, map_location="cpu")
         state_dict = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
 
-        print("Checkpoint Informationen:")
-        print(f"min_age = {checkpoint['min_age']}")
-        print(f"max_age = {checkpoint['max_age']}")
-        print(f"avg_age = {checkpoint['avg_age']}")
-        print(f"no_gender = {checkpoint['no_gender']}")
-        print()
+        self.logger = logger
+
+        self.logger.debug("Checkpoint Informationen:")
+        self.logger.debug(f"min_age = {checkpoint['min_age']}")
+        self.logger.debug(f"max_age = {checkpoint['max_age']}")
+        self.logger.debug(f"avg_age = {checkpoint['avg_age']}")
+        self.logger.debug(f"no_gender = {checkpoint['no_gender']}")
 
         self.min_age = float(checkpoint["min_age"])
         self.max_age = float(checkpoint["max_age"])
@@ -51,7 +52,7 @@ class MiVOLOTrainer(nn.Module):
             if k in model_dict and v.shape == model_dict[k].shape
         }
 
-        print(f"Geladene Parameter: {len(pretrained_dict)} / {len(model_dict)}")
+        self.logger.debug(f"Geladene Parameter: {len(pretrained_dict)} / {len(model_dict)}")
 
         model_dict.update(pretrained_dict)
         self.mivolo.load_state_dict(model_dict, strict=False)
@@ -68,9 +69,9 @@ class MiVOLOTrainer(nn.Module):
 
         class_centers = compute_class_centers_from_names(class_names)
 
-        print("Class Centers passend zu ImageFolder:")
+        self.logger.debug("Class Centers passend zu ImageFolder:")
         for idx, (name, center) in enumerate(zip(class_names, class_centers.tolist())):
-            print(f"{idx}: {name} -> {center}")
+            self.logger.debug(f"{idx}: {name} -> {center}")
 
         self.register_buffer("class_centers", class_centers)
 

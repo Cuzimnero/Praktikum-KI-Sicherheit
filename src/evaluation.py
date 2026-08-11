@@ -17,6 +17,8 @@ from src.split_type import train_type
 
 class evaluator:
     def __init__(self, current_dict_name:str, model_path:Path, batch_size:int, dataset_path:Path, classes_count:int, logger: logging,main_path:Path,num_data_loader_worker:int,train_type:train_type):
+        config = utils.load_config()
+
         self.cm = None
         self.current_dict_name = current_dict_name
         self.batch_size = batch_size
@@ -31,8 +33,10 @@ class evaluator:
         self.num_data_loader_worker = num_data_loader_worker
         self.weights_path=None
         self.train_type = train_type
+        self.cs_threshold=config["train"]["cs_threshold"]
 
     def val_default_yolo(self,k_fold_value:int):
+        """ Evaluation-Function   """
         print("starting evaluation")
 
         accuracy_scores=[]
@@ -159,7 +163,7 @@ class evaluator:
             y_real_ages = class_centers[y_real]
 
             fold_mae = mean_absolute_error(y_real_ages,y_predicted_ages)
-            fold_cs = np.mean(np.abs(y_real_ages - y_predicted_ages) <= 1)
+            fold_cs = np.mean(np.abs(y_real_ages - y_predicted_ages) <= self.cs_threshold)
 
             print(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
             self.logger.info(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
