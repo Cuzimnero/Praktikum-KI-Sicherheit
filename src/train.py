@@ -294,7 +294,7 @@ class model_trainer:
             student_extractor.remove()
 
 
-    def evaluate(self,model:model_trainer,class_count:int,class_type:class_type,k_fold_value:int,name:str,train_type:train_type):
+    def evaluate(self,model:model_trainer,class_count:int,class_type:class_type,k_fold_value:int,name:str,train_type:train_type,gen_confusion_matrix:bool):
         eval = evaluator(model.current_dict_name, model.model_path, model.batch_size, model.dataset_path,
                          class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type)
 
@@ -306,8 +306,9 @@ class model_trainer:
             group_list = [group["name"] for group in groups.values()]
         else:
             group_list = []
-        eval.show_confusion_matrix(group_list, name)
-        eval.safe_confusion_matrix()
+        if gen_confusion_matrix:
+            eval.show_confusion_matrix(group_list, name)
+            eval.safe_confusion_matrix()
 
 
     def pool_embedding(self, x):

@@ -71,8 +71,8 @@ class evaluator:
             train_class_to_idx = train_dataset.class_to_idx
             train_classes = train_dataset.classes
 
-            print("Train Klassenanzahl:", len(train_classes))
-            print("Eval Klassenanzahl vor Mapping:", len(eval_dataset.classes))
+            self.logger.debug(f"Train Klassenanzahl: {len(train_classes)}")
+            self.logger.debug(f"Eval Klassenanzahl: vor Mapping: {len(eval_dataset.classes)}")
 
             filtered_samples = []
             skipped_classes = set()
@@ -98,13 +98,13 @@ class evaluator:
             actual_classes_count = len(train_classes)
             class_centers = compute_class_centers_from_names(train_classes)
 
-            print("Eval Klassenanzahl nach Mapping:", actual_classes_count)
-            print("Max Label im Eval Dataset:", max(eval_dataset.targets))
-            print("Output Klassen:", actual_classes_count)
+            self.logger.debug(f"Eval Klassenanzahl nach Mapping: {actual_classes_count}")
+            self.logger.debug(f"Max Label im Eval Dataset: {max(eval_dataset.targets)}")
+            self.logger.debug(f"Output Klassen:{actual_classes_count}")
 
             if skipped_classes:
-                print("Übersprungene Eval-Klassen, die nicht im Train-Set waren:")
-                print(sorted(skipped_classes, key=lambda x: float(x) if str(x).replace('.', '', 1).isdigit() else x))
+                self.logger.debug("Übersprungene Eval-Klassen, die nicht im Train-Set waren:")
+                self.logger.debug(sorted(skipped_classes, key=lambda x: float(x) if str(x).replace('.', '', 1).isdigit() else x))
 
             loader = DataLoader(
                 eval_dataset,
@@ -141,10 +141,10 @@ class evaluator:
                         outputs = outputs[0]
 
                     if labels.max().item() >= outputs.shape[1]:
-                        print("Fehler vor Loss:")
-                        print("Max Label:", labels.max().item())
-                        print("Output Klassen:", outputs.shape[1])
-                        print("Labels:", labels)
+                        self.logger.debug("Fehler vor Loss:")
+                        self.logger.debug(f"Max Label:{labels.max().item()}")
+                        self.logger.debug(f"Output Klassen:{outputs.shape[1]}")
+                        self.logger.debug(f"Labels:{labels}")
                         raise ValueError("Ein Label ist größer/gleich der Anzahl der Modell-Outputs.")
 
                     loss = self.loss_function(outputs, labels)

@@ -1,25 +1,27 @@
 dataset_processing:
 
+#Trainings-Parameter
 train:
   yolo_num_epochs: 10
   destillation_num_epochs: 10
-  classes_count: 99
+  classes_count: 97
   batch_size: 256
   learning_rate: 0.0005
   num_data_loader_worker: 4
-  alpha: 0.5
-  beta: 0.02
+  alpha: 0.8
+  beta: 0.1
   temperature: 1
   sigma: 2.0
   cs_threshold: 1
 
-
+# Trainings-Pfade
 paths:
   logging_path: "logs"
   model_path: "models"
   dataset_path: "data"
   teacher_weights_path: "models/MiVOLO/checkpoints/model_age_utk_4.23.pth"
 
+# Setzt die Art von Daten, welche in der Log-Datei ausgegeben werden sollen mögliche Werte debug, info, warning, error und critical
 logging:
-  logging_mode: "debug"
+  logging_mode: "info"
 
