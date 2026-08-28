@@ -1,5 +1,5 @@
 import numpy as np
-
+'Bewertungsmetriken'
 def mean_absolute_error(y_true, y_predicted):
     return np.mean(np.abs(y_true - y_predicted))
 

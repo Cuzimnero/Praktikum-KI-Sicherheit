@@ -19,9 +19,13 @@ data_dict_path=main_path / config["paths"]["dataset_path"]
 file_name=datetime.now().strftime("%Y-%m-%d_%H-%M-%S")+"_data_distribution_ "+ ".png"
 
 def split_dataset_k_fold(dataset:pathlib.Path,result_path:pathlib.Path,k:int):
+    """Teilt Datensatz in K verschiedene Train. Val Gruppen (Folds) auf. Dabei wird Symlink benutzt, daher ist das Ausführen
+     nur als Adminstrator möglich. Genaueres in der Dokumentation"""
     fs.kfold(dataset,result_path,seed=42,k=k,move= "symlink")
 
 def process_dataset(dataset:pathlib.Path,result_path:pathlib.Path,k:int):
+    """Verarbeitet einen Datensatz und bringt ihn in die zum Trainieren notwendige Ordnerstruktur. Zum Schluss werden K-Folds
+    erstellt."""
     if not dataset.exists():
         return
     files=dataset.glob("*.jpg")
@@ -41,6 +45,18 @@ def process_dataset(dataset:pathlib.Path,result_path:pathlib.Path,k:int):
             folder.rmdir()
 
 def process_dataset_groups(dataset:pathlib.Path,result_path:pathlib.Path,k:int,group_count:int):
+    """Erstellt Datensatz aus von create_groups erstellten Gruppen.
+            Parameter:
+            ----------
+            dataset : path
+                Pfad zum Datensatz
+            result_path : Path
+                Ziel Pfad für Datensatz
+            k: int
+                Anzahl der genutzen Folds
+            group_count : int
+                Wie viele Gruppen sollen erstellt werden?
+            """
     if not dataset.exists():
         return
     k_fold_sort_path = result_path/".."/".."/"k_fold"/"groups"/f"group_size_{group_count}"
@@ -59,12 +75,25 @@ def process_dataset_groups(dataset:pathlib.Path,result_path:pathlib.Path,k:int,g
     split_dataset_k_fold(result_path/f"group_size_{group_count}", k_fold_sort_path, k)
 
     for folder in k_fold_sort_path.rglob("*"):
-        if folder.is_dir() and (not any(folder.iterdir())or() ):
+        if folder.is_dir() and (not any(folder.iterdir())):
             folder.rmdir()
 
 
 
 def create_groups(group_count:int,dest_dir:pathlib.Path):
+    """Erstellt Datensatz-Gruppen. Hinweis Funktion greift auf eine in process_dataset erstellte Liste zu daher
+        muss diese Funktion vorher ausgeführt werden. Im Datensatz-Ordner wird außerdem eine json Datei gespeichert, welche die genaue Gruppenaufteilung enthält.
+        Parameter
+        ----------
+        group_count : int
+            Anzahl an gewünschten Gruppen
+        dest_dir : Path
+            Ziel Pfad für Datensatz
+        Raises
+        ------
+        RuntimeError
+            Falls die Liste Buckets nicht existiert
+        """
     group_map.clear()
     if not buckets:
         raise RuntimeError("No buckets found")
@@ -81,74 +110,85 @@ def create_groups(group_count:int,dest_dir:pathlib.Path):
         json.dump(group_map, file, ensure_ascii=False, indent=4)
 
 def equalize_data(data_set_path:pathlib.Path,split_type:split_type,class_type:class_type,k_fold:int,class_count:int):
-        data_path=data_set_path /"train"
-        k_fold_v=0
-        if split_type is split_type.KFOLD:
-            if class_type is class_type.Group:
-                dict=data_dict_path/"processed"/"scaled"/"k_fold"/"groups"/f"group_size_{class_count}"
-            else:
-                dict=data_dict_path/"processed"/"scaled"/"k_fold"/"default"
-            k_fold_v=k_fold
+    data_path = data_set_path / "train"
+    if split_type is split_type.KFOLD:
+        if class_type is class_type.Group:
+            dict = data_dict_path / "processed" / "scaled" / "k_fold" / "groups" / f"group_size_{class_count}"
         else:
-            dict = data_dict_path / "processed" / "scaled"
+            dict = data_dict_path / "processed" / "scaled" / "k_fold" / "default"
+        k_fold_v = k_fold
+    else:
+        dict = data_dict_path / "processed" / "scaled"
+        k_fold_v = 1
 
-        file_count=0
-        sub_count=0
-        for fold in range(1,k_fold_v+1):
-            if split_type is split_type.KFOLD:
-                working_dict = dict / f"fold_{fold}"/"train"
-                working_dict.mkdir(exist_ok=True,parents=True)
-                data_path = data_set_path / f"fold_{fold}" / "train"
+    file_count = 0
+    sub_count = 0
+    for fold in range(1, k_fold_v + 1):
+        if split_type is split_type.KFOLD:
+            working_dict = dict / f"fold_{fold}" / "train"
+            working_dict.mkdir(exist_ok=True, parents=True)
+            data_path = data_set_path / f"fold_{fold}" / "train"
 
-            for sub_dir in data_path.iterdir():
+        for sub_dir in data_path.iterdir():
+            if sub_dir.is_dir():
                 sub_count = sub_count + 1
-                if sub_dir.is_dir():
-                    file_count = file_count + sum(1 for file in sub_dir.iterdir() if file.is_file())
+                file_count = file_count + sum(1 for file in sub_dir.iterdir() if file.is_file())
 
-            average_file_per_class = file_count / sub_count
+        average_file_per_class = round(file_count / sub_count)
 
-            print(file_count)
-            print("Average number of files: ", average_file_per_class)
-            print(sub_count)
-            file_count = 0
-            sub_count = 0
+        print(file_count)
+        print("Average number of files: ", average_file_per_class)
+        print(sub_count)
+        file_count = 0
+        sub_count = 0
 
-            for sub_dir in data_path.iterdir():
-                class_path = working_dict / sub_dir.name
-                class_path.mkdir(exist_ok=True, parents=True)
-                if sub_dir.is_dir():
-                    for file in sub_dir.iterdir():
-                        file_count = 0
-                        file_count = file_count + 1
-                        if file_count > average_file_per_class:
-                            break
-                        sh.copy(file, class_path)
-                    if file_count < average_file_per_class:
-                        it = 0
-                        while (file_count < average_file_per_class):
-                            it = it + 1
-                            for file in class_path.iterdir():
-                                sh.copy(file, class_path / f"{file.stem}({it}).jpg")
-                                file_count = file_count + 1
-            sh.copy(data_set_path/"group-list.json",dict)
-            if split_type is split_type.KFOLD:
-                data_path = data_set_path / f"fold_{fold}" / "val"
-                working_dict = dict / f"fold_{fold}"/"val"
-            else:
-                data_path = data_set_path / f"fold_{fold}" / "val"
-                working_dict = dict / "val"
-            for sub_dir in data_path.iterdir():
-                class_path = working_dict / sub_dir.name
-                class_path.mkdir(exist_ok=True, parents=True)
+        for sub_dir in data_path.iterdir():
+            class_path = working_dict / sub_dir.name
+            class_path.mkdir(exist_ok=True, parents=True)
+            if sub_dir.is_dir():
+                file_count = 0
                 for file in sub_dir.iterdir():
+                    if file_count >= average_file_per_class:
+                        break
                     sh.copy(file, class_path)
+                    file_count = file_count + 1
+                if file_count < average_file_per_class:
+                    it = 0
+                    while (file_count < average_file_per_class):
+                        it = it + 1
+                        for file in class_path.iterdir():
+                            if file_count >= average_file_per_class:
+                                break
+                            sh.copy(file, class_path / f"{file.stem}({it}).jpg")
+                            file_count = file_count + 1
+        sh.copy(data_set_path / "group-list.json", dict)
+        if split_type is split_type.KFOLD:
+            data_path = data_set_path / f"fold_{fold}" / "val"
+            working_dict = dict / f"fold_{fold}" / "val"
+        else:
+            data_path = data_set_path / f"fold_{fold}" / "val"
+            working_dict = dict / "val"
+        for sub_dir in data_path.iterdir():
+            class_path = working_dict / sub_dir.name
+            class_path.mkdir(exist_ok=True, parents=True)
+            for file in sub_dir.iterdir():
+                sh.copy(file, class_path)
 
-        try:
-            sh.copy(data_set_path/"group-list.json",dict)
-        except:
-            raise FileNotFoundError("Group list file not found")
+    try:
+        sh.copy(data_set_path / "group-list.json", dict)
+    except:
+        raise FileNotFoundError("Group list file not found")
+
+
+
+
 
 def plot_data(data_set_path:pathlib.Path):
+    """Erstellt eine Grafik welche die genaue Verteilung des Datensatzes auf die einzelnen Klassen zeigt.
+            ----------
+            data_set_path : Path
+               Pfad zum Datensatz
+        """
     data_path=data_set_path /"processed"/"default"/"default"
     data=[]
     result_dir = main_path / "results"
@@ -179,13 +219,8 @@ if __name__ == "__main__":
     # plot_data(data_dict_path)
     process_dataset(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"default",5)
     process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,16)
-    process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,10)
-    process_dataset_groups(data_dict_path/"raw"/"utkface_aligned_cropped"/"crop_part1",data_dict_path/"processed"/"default"/"groups",5,13)
+
     equalize_data(data_dict_path / "processed" / "k_fold" / "groups" / "group_size_16", split_type.KFOLD,
                   class_type.Group, 5, 16)
-    equalize_data(data_dict_path / "processed" / "k_fold" / "groups" / "group_size_10", split_type.KFOLD,
-                  class_type.Group, 5, 10)
-    equalize_data(data_dict_path / "processed" / "k_fold" / "groups" / "group_size_13", split_type.KFOLD,
-                  class_type.Group, 5, 13)
 
 

@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class EmbeddingExtractor:
+    """Embedding Extractor ermöglicht es sich an Schichten anzuhängen und so Embeddings zu extrahieren"""
 
     def __init__(self, model: nn.Module, layer_name: str):
         self.model = model

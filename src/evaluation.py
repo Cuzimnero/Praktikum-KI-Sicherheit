@@ -36,15 +36,28 @@ class evaluator:
         self.cs_threshold=config["train"]["cs_threshold"]
 
     def val_default_yolo(self,k_fold_value:int):
-        """ Evaluation-Function   """
-        print("starting evaluation")
+        """Evaluierungs-Funktion: berechnet MAE, CS1 Score, Accuracy und erstellt Confusion Matrix. Für genauere Informationen siehe Dokumentation
+            Parameter
+            ----------
+            k_fold_value : int
+                Anzahl der Folds
+            Raises
+            ------
+            ValueError
+                Falls Datenset-Pfad nicht verfügbar
+            FileNotFoundError
+                Falls Trainingsgewichte nicht gefunden werden
+            """
+        print("starte Evaluierung")
 
         accuracy_scores=[]
         self.cm=[]
         mae_scores=[]
         cs_scores=[]
 
+        #Evaluierungsschleife
         for i in range(1, k_fold_value + 1):
+            #Bestimmen der Pfade initialisieren von Variablen
             if self.train_type is train_type.default:
                 self.weights_path = self.model_path / "runs" / self.current_dict_name / f"yolo26n-cls_fold{i}.pt"
             else:
@@ -60,6 +73,7 @@ class evaluator:
             fold_train_path = self.dataset_path / f"fold_{i}" / "train"
             fold_eval_path = self.dataset_path / f"fold_{i}" / "val"
 
+            #Setzen von Transformation von Trainingsbildern auf 224*224, Laden von Datenset
             transform = transforms.Compose([
                 transforms.Resize((224, 224)),
                 transforms.ToTensor()

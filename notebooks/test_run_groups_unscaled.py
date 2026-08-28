@@ -2,6 +2,7 @@ from src.split_type import class_type,split_type,dataset_type,train_type
 from src.train import model_trainer
 
 
+#Testlauf unskalierter Datensatz mit 16 Gruppen
 def main(class_count):
     model = model_trainer()
     model.train_default_yolo(split_type.KFOLD, class_type.Group, dataset_type.DEFAULT, epochs=model.num_yolo_epochs,
