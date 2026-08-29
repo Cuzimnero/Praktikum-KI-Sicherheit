@@ -1,4 +1,7 @@
+import logging
+
 import torch
+from sympy.abc import sigma
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
@@ -24,7 +27,8 @@ def evaluate_teacher(weights_path, data_path, batch_size=64):
         weights_path=weights_path,
         class_type=class_type.default,
         dataset_path=data_path,
-        sigma= 1.5,
+        sigma=sigma,
+        logger=logging.getLogger(),
         class_names=dataset.classes
 
     )

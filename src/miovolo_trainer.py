@@ -29,7 +29,6 @@ class MiVOLOTrainer(nn.Module):
         self.mivolo = mvm.MiVOLOModel(
             layers=(4, 4, 8, 2),
             embed_dims=(192, 384, 384, 384),
-            num_classes=output_classes,
             num_heads=(6, 12, 12, 12),
             img_size=224,
             in_chans=3

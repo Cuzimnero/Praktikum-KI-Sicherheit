@@ -9,8 +9,8 @@ train:
   learning_rate: 0.0005
   num_data_loader_worker: 4
   alpha: 0.5
-  beta: 0.01
-  temperature: 8
+  beta: 0.0
+  temperature: 1
   sigma: 2.0
   cs_threshold: 1
 

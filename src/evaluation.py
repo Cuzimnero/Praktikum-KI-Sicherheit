@@ -177,7 +177,7 @@ class evaluator:
             y_real_ages = class_centers[y_real]
 
             fold_mae = mean_absolute_error(y_real_ages,y_predicted_ages)
-            fold_cs = np.mean(np.abs(y_real_ages - y_predicted_ages) <= self.cs_threshold)
+            fold_cs = np.mean(np.abs(y_predicted - y_real) <= self.cs_threshold)
 
             print(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
             self.logger.info(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
