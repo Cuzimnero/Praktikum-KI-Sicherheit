@@ -4,13 +4,13 @@ dataset_processing:
 train:
   yolo_num_epochs: 10
   destillation_num_epochs: 10
-  classes_count: 97
+  classes_count: 16
   batch_size: 256
   learning_rate: 0.0005
   num_data_loader_worker: 4
   alpha: 0.5
-  beta: 0.0
-  temperature: 1
+  beta: 0.02
+  temperature: 1.0
   sigma: 2.0
   cs_threshold: 1
 

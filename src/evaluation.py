@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from sklearn.metrics import accuracy_score, mean_absolute_error
+from torch._C import ClassType
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from ultralytics import YOLO
@@ -12,11 +13,11 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from src import utils
-from src.split_type import train_type
+from src.split_type import train_type,class_type
 
 
 class evaluator:
-    def __init__(self, current_dict_name:str, model_path:Path, batch_size:int, dataset_path:Path, classes_count:int, logger: logging,main_path:Path,num_data_loader_worker:int,train_type:train_type):
+    def __init__(self, current_dict_name:str, model_path:Path, batch_size:int, dataset_path:Path, classes_count:int, logger: logging,main_path:Path,num_data_loader_worker:int,train_type:train_type,class_type:class_type):
         config = utils.load_config()
 
         self.cm = None
@@ -34,6 +35,7 @@ class evaluator:
         self.weights_path=None
         self.train_type = train_type
         self.cs_threshold=config["train"]["cs_threshold"]
+        self.class_type = class_type
 
     def val_default_yolo(self,k_fold_value:int):
         """Evaluierungs-Funktion: berechnet MAE, CS1 Score, Accuracy und erstellt Confusion Matrix. Für genauere Informationen siehe Dokumentation
@@ -177,7 +179,13 @@ class evaluator:
             y_real_ages = class_centers[y_real]
 
             fold_mae = mean_absolute_error(y_real_ages,y_predicted_ages)
-            fold_cs = np.mean(np.abs(y_predicted - y_real) <= self.cs_threshold)
+
+            'Fallunterscheidung haben wir keine Gruppen können wir keine Klassen vergleichen, da nicht jedes Alter eine eigene Klasse hat'
+            'Daher vergleichen wir nur das alter'
+            if self.class_type is class_type.Group:
+                fold_cs = np.mean(np.abs(y_predicted - y_real) <= self.cs_threshold)
+            else:
+                fold_cs = np.mean(np.abs(y_predicted_ages - y_real_ages) <= self.cs_threshold)
 
             print(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")
             self.logger.info(f"Fold {i} : accuracy {fold_accuracy} | MAE: {fold_mae:.2f} | CS (±1): {fold_cs * 100:.1f}%")

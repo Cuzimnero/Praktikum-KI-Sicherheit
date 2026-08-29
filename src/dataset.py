@@ -18,6 +18,7 @@ def download_set(set_name:str):
         ----------
         set_name : str
             Name des Datenset
+         Raises
         ------
         RuntimeError
             Falls installations-Pfad  nicht existiert / Kopierfehler auftritt
