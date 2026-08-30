@@ -83,8 +83,6 @@ class MiVOLOTrainer(nn.Module):
         with torch.no_grad():
             out = self.mivolo(x)
 
-        #print("Min Wert im Batch:", out.min().item(), "| Max Wert im Batch:", out.max().item())
-
         if isinstance(out, tuple):
             out = out[0]
 

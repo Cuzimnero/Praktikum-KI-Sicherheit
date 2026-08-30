@@ -35,6 +35,9 @@ class evaluator:
         self.weights_path=None
         self.train_type = train_type
         self.cs_threshold=config["train"]["cs_threshold"]
+        self.alpha = config["train"]["alpha"]
+        self.beta = config["train"]["beta"]
+        self.temperature = config["train"]["temperature"]
         self.class_type = class_type
 
 
@@ -223,7 +226,7 @@ class evaluator:
         result_dir = self.main_path / "results"
         result_dir.mkdir(parents=True, exist_ok=True)
         for index, fig in enumerate(self.figure):
-            file_name = f"confusion_matrix_fold_{index + 1}_" + datetime.now().strftime("%Y-%m-%d_%H-%M") + ".png"
+            file_name = f"confusion_matrix_T{self.temperature}_A{self.alpha}_B{self.beta}_fold_{index + 1}_" + datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".png"
             fig.savefig(result_dir / file_name, bbox_inches='tight')
 
 def compute_class_centers_from_names(class_names):
