@@ -37,6 +37,7 @@ class evaluator:
         self.cs_threshold=config["train"]["cs_threshold"]
         self.class_type = class_type
 
+
     def val_default_yolo(self,k_fold_value:int):
         """Evaluierungs-Funktion: berechnet MAE, CS1 Score, Accuracy und erstellt Confusion Matrix. Für genauere Informationen siehe Dokumentation
             Parameter
@@ -183,7 +184,9 @@ class evaluator:
             'Fallunterscheidung haben wir keine Gruppen können wir keine Klassen vergleichen, da nicht jedes Alter eine eigene Klasse hat'
             'Daher vergleichen wir nur das alter'
             if self.class_type is class_type.Group:
-                fold_cs = np.mean(np.abs(y_predicted - y_real) <= self.cs_threshold)
+                sorted_centers = np.sort(class_centers)
+                cs_threshold_years = float(np.mean(np.diff(sorted_centers)))
+                fold_cs = np.median(np.abs(y_predicted_ages - y_real_ages) <= cs_threshold_years)
             else:
                 fold_cs = np.mean(np.abs(y_predicted_ages - y_real_ages) <= self.cs_threshold)
 

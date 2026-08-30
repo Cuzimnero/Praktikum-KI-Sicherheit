@@ -296,7 +296,7 @@ class model_trainer:
 
     def evaluate(self,model:model_trainer,class_count:int,class_type:class_type,k_fold_value:int,name:str,train_type:train_type,gen_confusion_matrix:bool):
         eval = evaluator(model.current_dict_name, model.model_path, model.batch_size, model.dataset_path,
-                         class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type)
+                         class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type, class_type)
 
         print(f"Average default training accuracy {eval.val_default_yolo(k_fold_value)}")
 
