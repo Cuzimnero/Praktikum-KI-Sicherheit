@@ -188,8 +188,8 @@ class evaluator:
             'Daher vergleichen wir nur das alter'
             if self.class_type is class_type.Group:
                 sorted_centers = np.sort(class_centers)
-                cs_threshold_years = float(np.mean(np.diff(sorted_centers)))
-                fold_cs = np.median(np.abs(y_predicted_ages - y_real_ages) <= cs_threshold_years)
+                cs_threshold_years = float(np.median(np.diff(sorted_centers)))
+                fold_cs = np.mean(np.abs(y_predicted_ages - y_real_ages) <= cs_threshold_years)
             else:
                 fold_cs = np.mean(np.abs(y_predicted_ages - y_real_ages) <= self.cs_threshold)
 
