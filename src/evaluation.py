@@ -211,6 +211,7 @@ class evaluator:
 
     def show_confusion_matrix(self,display_labels:list,name:str):
         self.figure =[]
+        display_labels = sorted(display_labels)
         for confusion_matrix in self.cm:
             matrix=ConfusionMatrixDisplay(confusion_matrix=confusion_matrix,display_labels=display_labels).plot()
             fig=matrix.figure_
