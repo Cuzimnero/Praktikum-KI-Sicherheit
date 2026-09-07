@@ -120,17 +120,34 @@ class model_trainer:
 
             torch.save(self.yolo_model.state_dict(),run_dict_path/f"yolo26n-cls_fold{i}.pt")
 
-    def train_distillation_yolo(
-            self,
-            split_type: split_type,
-            class_type: class_type,
-            dataset_type: dataset_type,
-            epochs: int,
-            k_fold_value: int,
-            classes_count: int,
-            use_soft_distillation:bool
+    def train_distillation_yolo( self,split_type: split_type,class_type: class_type,dataset_type: dataset_type,epochs: int,k_fold_value: int,classes_count: int,use_soft_distillation:bool):
+        """Führt die K-Fold Cross-Validation für das Knowledge Distillation Training durch. Kombiniert Cross-Entropy-Loss, Soft-Label-Distillation und
+            Feature-Distillation über mehrere Folds.
 
-    ):
+            Parameters
+    ----------
+    split_type : split_type
+        Konfiguration des Datensatz-Splits
+    class_type : class_type
+        Typ der Klasseneinteilung
+    dataset_type : dataset_type
+        Art des Datensatzes
+    epochs : int
+        Anzahl der Trainings-Epochen pro Fold
+    k_fold_value : int
+        Anzahl der Folds für die Cross-Validation
+    classes_count : int
+        Erwartete Anzahl an Zielklassen.
+    use_soft_distillation : bool
+        Aktiviert oder deaktiviert den Soft-Label-Distillation Loss
+
+    Raises
+    ------
+    FileNotFoundError
+        Falls der Datensatzpfad oder die Gewichte vom Teacher nicht existieren.
+    RuntimeError
+        Falls bei der Extraktion der Features via Forward Hook ein Fehler auftritt"""
+
         self.dataset_path = utils.get_dataset_path(dataset_type, class_type, split_type, classes_count, self.main_path)
 
         self.logger.info(f"Using Distillation Path {self.dataset_path}")
@@ -181,10 +198,7 @@ class model_trainer:
 
             student_layer_name = str(len(self.yolo_model.model) - 2)
 
-            student_extractor = EmbeddingExtractor(
-                model=self.yolo_model.model,
-                layer_name=student_layer_name
-            )
+            student_extractor = EmbeddingExtractor(model=self.yolo_model.model,layer_name=student_layer_name)
 
             self.logger.debug("Künstliches Bild wird geschickt")
 
@@ -296,7 +310,7 @@ class model_trainer:
 
     def evaluate(self,model:model_trainer,class_count:int,class_type:class_type,k_fold_value:int,name:str,train_type:train_type,gen_confusion_matrix:bool):
         eval = evaluator(model.current_dict_name, model.model_path, model.batch_size, model.dataset_path,
-                         class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type, class_type)
+        class_count, model.logger, model.main_path, model.num_data_loader_worker,train_type, class_type)
 
         print(f"Average default training accuracy {eval.val_default_yolo(k_fold_value)}")
 
@@ -312,6 +326,22 @@ class model_trainer:
 
 
     def pool_embedding(self, x):
+      """Reduziert Feature-Tensoren (2D, 3D, 4D) auf Vektorebene
+
+    Parameters
+    ----------
+    x : torch.Tensor or tuple or list
+        Feature-Tensor aus der Zwischenschicht
+
+    Returns
+    -------
+    torch.Tensor
+        Auf Form (Batch_Size, Feature_Dim) reduzierter Tensor
+
+    Raises
+    ------
+    ValueError
+        Falls der Tensor eine unbekannte Dimension aufweist """
       if isinstance(x, (tuple, list)):
         x = x[0]
 

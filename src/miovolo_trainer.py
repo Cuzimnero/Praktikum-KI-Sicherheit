@@ -5,6 +5,28 @@ import torch.nn as nn
 import logging
 
 class MiVOLOTrainer(nn.Module):
+    """Wrapper-Klasse für das MiVOLO-Teacher-Modell zur Generierung von Soft-Labels
+     Lädt den vortrainierten MiVOLO Checkpoint, friert dessen Gewichte ein und rechnet die kontinuierliche Altersschätzung über eine Gauß-Verteilung in Logits für die konkreten Altersgruppen um.
+
+    Parameters
+    ----------
+    weights_path : str or Path
+        Pfad zur Datei mit den vortrainierten MiVOLO-Gewichten
+    class_type : class_type
+        Typ der Klasseneinteilung.
+    dataset_path : Path
+        Pfad zum aktuellen Datensatz.
+    sigma : float
+        Standardabweichung der Gauß-Verteilung zur Berechnung der Teacher-Logits.
+    logger : logging.Logger
+        Logger Instanz für Status und Debug Meldungen
+    class_names : list of str, optional
+        Liste der Klassennamen, um die Klassenmittelpunkte zu bestimmen.
+
+    Raises
+    ------
+    ValueError
+        Falls `class_names` nicht übergeben wird """
     def __init__(self, weights_path, class_type, dataset_path: Path, sigma,logger:logging.Logger,class_names=None):
         super().__init__()
 
@@ -78,6 +100,17 @@ class MiVOLOTrainer(nn.Module):
 
 
     def forward(self, x):
+        """Führt den Forward-Pass durch, denormalisiert das Alter und erzeugt Soft-Logits
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Eingabebilder
+
+        Returns
+        -------
+        torch.Tensor
+            Berechnete Teacher-Logits"""
         x = (x - self.mean) / self.std
 
         with torch.no_grad():
@@ -101,6 +134,17 @@ class MiVOLOTrainer(nn.Module):
         return teacher_logits
 
 def compute_class_centers_from_names(class_names):
+    """Berechnet aus Klassennamen die numerischen Klassenmittelpunkte
+
+    Parameters
+    ----------
+    class_names : list of str
+        Liste der Ordnernamen/Klassen
+
+    Returns
+    -------
+    torch.Tensor
+        Ein 1D Tensor mit den berechneten Klassenmittelpunkten"""
     centers = []
 
     for name in class_names:
