@@ -34,6 +34,9 @@ pip install -r requirements.txt
 cd models
 git clone https://github.com/wildchlamydia/mivolo
 ```
+### Umgebung initalisieren
+- dataset.py ausführen um den Datensatz herunterzuladen
+- processed_dataset.py ausführen um die in der Dokumentation genutzten Datensatz Varianten zu erstellen
 
 ---
 
